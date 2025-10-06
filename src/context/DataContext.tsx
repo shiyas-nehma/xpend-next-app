@@ -1,3 +1,5 @@
+'use client';
+
 import React, { createContext, useState, ReactNode, useCallback, useMemo } from 'react';
 import type { Income, Expense, Category } from '../types';
 import { mockIncomes, mockExpenses, mockCategories } from '../data/mockData';

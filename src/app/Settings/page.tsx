@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import ProfileSettings from '../../components/settings/ProfileSettings';
 import NotificationSettings from '../../components/settings/NotificationSettings';

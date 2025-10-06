@@ -1,7 +1,8 @@
 
+'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { 
     PlusIcon, 
     BellIcon, 
@@ -64,26 +65,24 @@ const QuickAddBar: React.FC = () => {
 
         setIsLoading(true);
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-            const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: `Parse the following shorthand transaction. The format is generally '[type] [amount] [description] #[category]'. 'exp' means expense, 'inc' means income. If type is omitted, assume expense. Find the single most relevant category name from the text provided after the '#'. The description is the text between the amount and the category tag. User input: "${inputValue}"`,
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            type: { type: Type.STRING, enum: ['income', 'expense'] },
-                            amount: { type: Type.NUMBER },
-                            description: { type: Type.STRING },
-                            categoryName: { type: Type.STRING }
-                        },
-                        required: ["type", "amount", "description", "categoryName"]
-                    }
-                }
-            });
+            const ai = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GOOGLE_API_KEY as string);
+            const model = ai.getGenerativeModel({ model: 'gemini-pro' });
+            
+            const prompt = `Parse the following shorthand transaction and return a JSON object. The format is generally '[type] [amount] [description] #[category]'. 'exp' means expense, 'inc' means income. If type is omitted, assume expense. Find the single most relevant category name from the text provided after the '#'. The description is the text between the amount and the category tag. 
 
-            const result = JSON.parse(response.text);
+Return only a JSON object with this structure:
+{
+  "type": "income" or "expense",
+  "amount": number,
+  "description": "string",
+  "categoryName": "string"
+}
+
+User input: "${inputValue}"`;
+
+            const response = await model.generateContent(prompt);
+            const responseText = response.response.text();
+            const result = JSON.parse(responseText.replace(/```json\n?/g, '').replace(/```\n?/g, ''));
 
             if (!result.amount || !result.description || !result.categoryName) {
                 throw new Error("AI could not parse the transaction. Please be more specific.");

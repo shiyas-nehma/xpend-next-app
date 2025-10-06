@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo } from 'react';
 import ReportCard from './ReportCard';
 import type { Income, Expense } from '../../types';

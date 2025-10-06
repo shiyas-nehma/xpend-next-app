@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
-import { EyeIcon, EyeOffIcon, GoogleIcon, FacebookIcon } from '../../components/icons/NavIcons';
+'use client';
 
-interface LoginPageProps {
-  onLogin: () => void;
-  onNavigate: (page: 'signup' | 'forgotPassword') => void;
-}
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { EyeIcon, EyeOffIcon, GoogleIcon, FacebookIcon } from '../../components/icons/NavIcons';
 
 const Logo: React.FC = () => (
     <div className="flex items-center space-x-2">
@@ -26,12 +24,23 @@ const SocialButton: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon
 );
 
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigate }) => {
+export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    onLogin();
+    // Handle login logic here
+    // For now, redirect to dashboard after successful login
+    router.push('/dashboard');
+  };
+
+  const handleNavigateToSignup = () => {
+    router.push('/signup');
+  };
+
+  const handleNavigateToForgotPassword = () => {
+    router.push('/forgotpassword');
   };
 
   return (
@@ -79,7 +88,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigate }) => {
                 </label>
                 <button
                     type="button"
-                    onClick={() => onNavigate('forgotPassword')}
+                    onClick={handleNavigateToForgotPassword}
                     className="text-sm font-medium text-brand-blue hover:underline focus:outline-none"
                 >
                     Forgot password?
@@ -115,7 +124,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigate }) => {
         <p className="text-center text-sm text-brand-text-secondary mt-8">
             Don't have an account?{' '}
             <button
-                onClick={() => onNavigate('signup')}
+                onClick={handleNavigateToSignup}
                 className="font-medium text-brand-blue hover:underline focus:outline-none"
             >
                 Sign up
@@ -124,6 +133,4 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigate }) => {
       </div>
     </div>
   );
-};
-
-export default LoginPage;
+}

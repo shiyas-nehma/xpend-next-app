@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
-import { EyeIcon, EyeOffIcon, GoogleIcon, FacebookIcon } from '../../components/icons/NavIcons';
+'use client';
 
-interface SignupPageProps {
-  onNavigate: (page: 'login') => void;
-  onSignupSuccess: () => void;
-}
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { EyeIcon, EyeOffIcon, GoogleIcon, FacebookIcon } from '../../components/icons/NavIcons';
 
 const Logo: React.FC = () => (
     <div className="flex items-center space-x-2">
@@ -26,14 +24,19 @@ const SocialButton: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon
 );
 
 
-const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onSignupSuccess }) => {
+export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Handle signup logic here, then trigger onboarding
-    onSignupSuccess();
+    // Handle signup logic here, then redirect to onboarding
+    router.push('/onboarding');
+  };
+
+  const handleNavigateToLogin = () => {
+    router.push('/login');
   };
 
   return (
@@ -120,7 +123,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onSignupSuccess }) 
         <p className="text-center text-sm text-brand-text-secondary mt-8">
             Already have an account?{' '}
             <button
-                onClick={() => onNavigate('login')}
+                onClick={handleNavigateToLogin}
                 className="font-medium text-brand-blue hover:underline focus:outline-none"
             >
                 Sign in
@@ -129,6 +132,4 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onSignupSuccess }) 
       </div>
     </div>
   );
-};
-
-export default SignupPage;
+}

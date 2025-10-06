@@ -1,6 +1,8 @@
 
+'use client';
+
 import React, { useState, useEffect } from 'react';
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Goal } from '../../types';
 import { XIcon, SparklesIcon } from '../icons/NavIcons';
 

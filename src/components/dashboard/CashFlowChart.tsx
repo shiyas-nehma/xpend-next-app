@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
 import { InfoIcon } from '../icons/NavIcons';

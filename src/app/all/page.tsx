@@ -123,8 +123,8 @@ export default function AIPage() {
     const [editingTitleValue, setEditingTitleValue] = useState('');
     const isCancelledRef = useRef(false);
 
-    const ai = useMemo(() => new GoogleGenAI({ apiKey: process.env.API_KEY as string }), []);
-    const [chat, setChat] = useState<Chat | null>(null);
+    const ai = useMemo(() => new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GOOGLE_API_KEY as string), []);
+    const [chat, setChat] = useState<any | null>(null);
 
     const activeChat = useMemo(() => chatSessions.find(s => s.id === activeChatId), [chatSessions, activeChatId]);
 
@@ -162,9 +162,8 @@ export default function AIPage() {
                     parts: [{ text: m.content }],
                 }));
 
-            const newChat = ai.chats.create({
-                model: 'gemini-2.5-flash',
-                config: { systemInstruction: 'You are a specialized financial assistant for the Equota Admin Panel. Your capabilities are strictly limited to analyzing and answering questions about the user\'s financial data (income, expenses, budgets, categories) as presented within this application. You must decline any requests that are not directly related to this financial data, including but not limited to general knowledge questions, creative writing, or personal advice. If a user asks an off-topic question, you must politely state your purpose and guide them back to financial topics. For all financial answers, provide concise and clear information. Use the following markdown formats to highlight key data points: wrap important phrases in double asterisks like **this**, format currency as $1,234.56, positive percentages as +12.5%, and negative percentages as -5.2%.' },
+            const model = ai.getGenerativeModel({ model: 'gemini-pro' });
+            const newChat = model.startChat({
                 history: chatHistory,
             });
             setChat(newChat);
@@ -252,12 +251,10 @@ export default function AIPage() {
 
     const generateTitle = async (userMessage: string, modelResponse: string): Promise<string> => {
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-            const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: `Based on this conversation, create a short, descriptive title (max 5 words).\n\nUSER: ${userMessage}\nMODEL: ${modelResponse}`,
-            });
-            return response.text.trim().replace(/["'*]/g, '');
+            const ai = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GOOGLE_API_KEY as string);
+            const model = ai.getGenerativeModel({ model: 'gemini-pro' });
+            const response = await model.generateContent(`Based on this conversation, create a short, descriptive title (max 5 words).\n\nUSER: ${userMessage}\nMODEL: ${modelResponse}`);
+            return response.response.text().trim().replace(/["'*]/g, '');
         } catch (e) {
             console.error("Title generation failed:", e);
             return "Untitled Chat";
@@ -279,9 +276,8 @@ export default function AIPage() {
             setActiveChatId(newChatSession.id);
             isFirstUserMessage = true;
 
-            currentChatInstance = ai.chats.create({
-                model: 'gemini-2.5-flash',
-                config: { systemInstruction: 'You are a specialized financial assistant for the Equota Admin Panel. Your capabilities are strictly limited to analyzing and answering questions about the user\'s financial data (income, expenses, budgets, categories) as presented within this application. You must decline any requests that are not directly related to this financial data, including but not limited to general knowledge questions, creative writing, or personal advice. If a user asks an off-topic question, you must politely state your purpose and guide them back to financial topics. For all financial answers, provide concise and clear information. Use the following markdown formats to highlight key data points: wrap important phrases in double asterisks like **this**, format currency as $1,234.56, positive percentages as +12.5%, and negative percentages as -5.2%.' },
+            const model = ai.getGenerativeModel({ model: 'gemini-pro' });
+            currentChatInstance = model.startChat({
                 history: []
             });
             setChat(currentChatInstance);
@@ -297,7 +293,7 @@ export default function AIPage() {
         setInputValue('');
         
         try {
-            const stream = await currentChatInstance.sendMessageStream({ message: messageContent });
+            const stream = await currentChatInstance.sendMessageStream(messageContent);
             
             let modelResponse = '';
             let isFirstChunk = true;
@@ -311,7 +307,7 @@ export default function AIPage() {
                     setChatSessions(prev => prev.map(s => s.id === currentChatId ? { ...s, messages: [...s.messages, { role: 'model', content: '' }] } : s));
                 }
 
-                modelResponse += chunk.text;
+                modelResponse += chunk.text();
                 setChatSessions(prev => prev.map(s => {
                     if (s.id === currentChatId) {
                         const newMessages = [...s.messages];

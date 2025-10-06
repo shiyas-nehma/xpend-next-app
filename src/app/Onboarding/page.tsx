@@ -1,4 +1,7 @@
+'use client';
+
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     WelcomeVisual, 
@@ -9,10 +12,6 @@ import {
     FinalSetupVisual
 } from '../../components/onboarding/OnboardingVisuals';
 import { CheckIcon } from '../../components/icons/NavIcons';
-
-interface OnboardingPageProps {
-  onFinish: (dontShowAgain: boolean) => void;
-}
 
 const variants = {
     enter: (direction: number) => ({
@@ -50,11 +49,19 @@ const ProgressIndicator: React.FC<{ current: number; total: number }> = ({ curre
     );
 };
 
-const OnboardingPage: React.FC<OnboardingPageProps> = ({ onFinish }) => {
+export default function OnboardingPage() {
+    const router = useRouter();
     const [[page, direction], setPage] = useState([0, 0]);
     const [dontShowAgain, setDontShowAgain] = useState(false);
 
-    const handleFinish = () => onFinish(dontShowAgain);
+    const handleFinish = () => {
+        // Store the preference if needed
+        if (dontShowAgain) {
+            localStorage.setItem('hideOnboarding', 'true');
+        }
+        // Navigate to dashboard or login depending on auth state
+        router.push('/dashboard');
+    };
 
     const steps = [
         {
@@ -178,6 +185,4 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({ onFinish }) => {
             </div>
         </div>
     );
-};
-
-export default OnboardingPage;
+}

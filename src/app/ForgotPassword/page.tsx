@@ -1,8 +1,7 @@
-import React from 'react';
+'use client';
 
-interface ForgotPasswordPageProps {
-  onNavigate: (page: 'login') => void;
-}
+import React from 'react';
+import { useRouter } from 'next/navigation';
 
 const Logo: React.FC = () => (
     <div className="flex items-center space-x-2">
@@ -14,13 +13,18 @@ const Logo: React.FC = () => (
 );
 
 
-const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onNavigate }) => {
+export default function ForgotPasswordPage() {
+  const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     // Handle password reset logic here
     alert('Password reset link sent!');
-    onNavigate('login');
+    router.push('/login');
+  };
+
+  const handleBackToLogin = () => {
+    router.push('/login');
   };
 
   return (
@@ -62,7 +66,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onNavigate }) =
          <p className="text-center text-sm text-brand-text-secondary mt-8">
             Remember your password?{' '}
             <button
-                onClick={() => onNavigate('login')}
+                onClick={handleBackToLogin}
                 className="font-medium text-brand-blue hover:underline focus:outline-none"
             >
                 Sign in
@@ -71,6 +75,4 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onNavigate }) =
       </div>
     </div>
   );
-};
-
-export default ForgotPasswordPage;
+}

@@ -1,7 +1,9 @@
 
 
+'use client';
+
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PlusIcon, PencilIcon, TrashIcon, XIcon, CreditCardIcon, CashIcon, BankIcon, DocumentTextIcon, MagnifyingGlassIcon, GridIcon, ListIcon, RefreshIcon } from '../../components/icons/NavIcons';
 import type { Expense, Category, Recurrence } from '../types';
 import CategoryModal from '../../components/category/CategoryModal';

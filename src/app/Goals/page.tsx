@@ -1,5 +1,7 @@
 
 
+'use client';
+
 import React, { useState, useMemo } from 'react';
 import type { Goal } from '../types';
 import { mockGoals } from '../../data/mockData';

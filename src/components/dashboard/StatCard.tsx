@@ -1,6 +1,8 @@
+'use client';
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronDownIcon, InfoIcon, RefreshIcon } from '../icons/NavIcons';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { useData } from '../../hooks/useData';
 import FormattedMessageContent from '../common/FormattedMessageContent';
 
@@ -70,13 +72,11 @@ const AIAssistantCard: React.FC = () => {
             - Top Spending Categories: ${topCategories || 'None'}
             `;
 
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt
-            });
+            const ai = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GOOGLE_API_KEY as string);
+            const model = ai.getGenerativeModel({ model: 'gemini-pro' });
+            const response = await model.generateContent(prompt);
             
-            setSummary(response.text);
+            setSummary(response.response.text());
 
         } catch (e: any) {
             console.error("AI summary generation failed:", e);

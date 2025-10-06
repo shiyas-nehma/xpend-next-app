@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import SettingsCard from './SettingsCard';
 import { useToast } from '../../hooks/useToast';

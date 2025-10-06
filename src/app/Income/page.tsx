@@ -1,5 +1,7 @@
 
 
+'use client';
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { PlusIcon, PencilIcon, TrashIcon, XIcon, CreditCardIcon, CashIcon, BankIcon, ChevronDownIcon, MagnifyingGlassIcon, GridIcon, ListIcon, RefreshIcon } from '../../components/icons/NavIcons';
 import type { Income, Category, Recurrence } from '../types';
