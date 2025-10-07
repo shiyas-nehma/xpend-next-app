@@ -1,6 +1,8 @@
+'use client';
+
 import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import type { Expense } from '../../types';
+import type { Expense } from '@/types';
 import ReportCard from './ReportCard';
 
 const COLORS = ['#5D78FF', '#FFC700', '#22c55e', '#f97316', '#8b5cf6', '#ec4899', '#14b8a6', '#64748b'];

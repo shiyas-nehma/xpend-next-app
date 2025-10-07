@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronDownIcon, InfoIcon, RefreshIcon } from '../icons/NavIcons';
+import { ChevronDownIcon, InfoIcon, RefreshIcon } from '@/components/icons/NavIcons';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { useData } from '../../hooks/useData';
-import FormattedMessageContent from '../common/FormattedMessageContent';
+import { useData } from '@/hooks/useData';
+import FormattedMessageContent from '@/components/common/FormattedMessageContent';
 
 const CardBase: React.FC<{children: React.ReactNode, className?: string}> = ({ children, className }) => (
     <div className={`bg-brand-surface rounded-2xl p-6 relative

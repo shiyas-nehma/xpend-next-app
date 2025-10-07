@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
 import type { Income, Expense } from '@/types';

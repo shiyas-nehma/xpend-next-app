@@ -14,10 +14,10 @@ import {
     CheckCircleIcon,
     InformationCircleIcon,
     LightningBoltIcon
-} from '../icons/NavIcons';
-import { useData } from '../../hooks/useData';
-import { useToast } from '../../hooks/useToast';
-import type { Income, Expense } from '../../types';
+} from '@/components/icons/NavIcons';
+import { useData } from '@/hooks/useData';
+import { useToast } from '@/hooks/useToast';
+import type { Income, Expense } from '@/types';
 
 type Notification = {
     id: number;

@@ -1,6 +1,6 @@
 import React from 'react';
-import type { Campaign } from '../../types';
-import { DotsHorizontalIcon, PlusIcon, ArrowLeftIcon, ArrowRightIcon } from '../icons/NavIcons';
+import type { Campaign } from '@/types';
+import { DotsHorizontalIcon, PlusIcon, ArrowLeftIcon, ArrowRightIcon } from '@/components/icons/NavIcons';
 
 const campaigns: Campaign[] = [
     { name: 'Pela Design', followers: '3,074', change: '+9.23%', avatars: ['1', '2', '3', '4'] },

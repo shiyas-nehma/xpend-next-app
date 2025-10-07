@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { XIcon } from '../icons/NavIcons';
+import { XIcon } from '@/components/icons/NavIcons';
 
 interface ConfirmationModalProps {
   isOpen: boolean;

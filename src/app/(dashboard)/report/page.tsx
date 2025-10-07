@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import MonthlyComparisonChart from '@/components/reports/MonthlyComparisonChart';
 import MonthlySpendChart from '@/components/reports/MonthlySpendChart';

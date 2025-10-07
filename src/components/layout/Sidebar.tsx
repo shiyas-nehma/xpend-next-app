@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { DashboardIcon, IncomeIcon, ExpenseIcon, CategoryIcon, BudgetIcon, GoalIcon, ReportIcon, SettingsIcon, LogoutIcon, Logo, AIIcon, AccountsIcon } from '../icons/NavIcons';
+import { DashboardIcon, IncomeIcon, ExpenseIcon, CategoryIcon, BudgetIcon, GoalIcon, ReportIcon, SettingsIcon, LogoutIcon, Logo, AIIcon, AccountsIcon } from '@/components/icons/NavIcons';
 
 const NavItem: React.FC<{ icon: React.ReactNode; label: string; active?: boolean; onClick: () => void }> = ({ icon, label, active, onClick }) => (
   <button

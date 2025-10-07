@@ -1,6 +1,6 @@
+'use client';
 
-
-import type { Expense, Category, Income, Goal, Account } from '../types';
+import type { Expense, Category, Income, Goal, Account } from '@/types';
 
 export const mockCategories: Category[] = [
   { id: 1, name: 'Groceries', icon: '🛒', type: 'Expense', transactions: 12, amount: 450.75, budget: 600, description: 'Weekly food and household supplies.' },

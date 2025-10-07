@@ -1,5 +1,5 @@
 import React from 'react';
-import { LightningBoltIcon, ArrowRightIcon } from '../icons/NavIcons';
+import { LightningBoltIcon, ArrowRightIcon } from '@/components/icons/NavIcons';
 
 const PremiumCard: React.FC = () => {
   return (

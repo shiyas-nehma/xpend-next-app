@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { WalletIcon, GoalIcon, AIIcon, PlusIcon } from '../icons/OnboardingIcons';
+import { WalletIcon, GoalIcon, AIIcon, PlusIcon } from '@/components/icons/OnboardingIcons';
 
 const Card: React.FC<{children: React.ReactNode, className?: string}> = ({ children, className }) => (
     <div className={`bg-brand-surface rounded-2xl p-4 border border-brand-border ${className}`}>

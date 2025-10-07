@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRightIcon } from '../icons/NavIcons';
+import { ArrowRightIcon } from '@/components/icons/NavIcons';
 
 const CardBase: React.FC<{children: React.ReactNode, className?: string}> = ({ children, className }) => (
     <div className={`bg-brand-surface rounded-2xl p-6 relative

@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 
 const ReportCard: React.FC<{ title: string; children: React.ReactNode; className?: string, headerControls?: React.ReactNode }> = ({ title, children, className, headerControls }) => (

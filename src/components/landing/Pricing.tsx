@@ -15,7 +15,7 @@ import {
     UsersIcon,
     UserCircleIcon,
     BadgeIcon
-} from '../icons/NavIcons';
+} from '@/components/icons/NavIcons';
 
 interface PricingProps {
     onEnterApp: (page: 'signup') => void;

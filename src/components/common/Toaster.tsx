@@ -1,7 +1,7 @@
 import React from 'react';
-import { useToast } from '../../hooks/useToast';
-import { CheckCircleIcon, XCircleIcon, InformationCircleIcon, XIcon } from '../icons/NavIcons';
-import type { ToastType } from '../../types';
+import { useToast } from '@/hooks/useToast';
+import { CheckCircleIcon, XCircleIcon, InformationCircleIcon, XIcon } from '@/components/icons/NavIcons';
+import type { ToastType } from '@/types';
 
 const icons: Record<ToastType, React.ReactNode> = {
   success: <CheckCircleIcon className="w-6 h-6 text-green-400" />,

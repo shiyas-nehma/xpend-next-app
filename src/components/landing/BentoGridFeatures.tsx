@@ -1,7 +1,7 @@
 
 'use client'
 import React from 'react';
-import { AIIcon, DocumentTextIcon, MagnifyingGlassIcon, UserCircleIcon, GoalIcon } from '../icons/NavIcons';
+import { AIIcon, DocumentTextIcon, MagnifyingGlassIcon, UserCircleIcon, GoalIcon } from '@/components/icons/NavIcons';
 
 // Base card component for consistent styling
 const BentoCard: React.FC<{

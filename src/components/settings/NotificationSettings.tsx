@@ -1,6 +1,6 @@
 import React from 'react';
 import SettingsCard from './SettingsCard';
-import ToggleSwitch from '../common/ToggleSwitch';
+import ToggleSwitch from '@/components/common/ToggleSwitch';
 
 const NotificationSettings: React.FC = () => {
     return (

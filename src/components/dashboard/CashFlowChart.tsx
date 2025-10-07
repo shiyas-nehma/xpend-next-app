@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
-import { InfoIcon } from '../icons/NavIcons';
+import { InfoIcon } from '@/components/icons/NavIcons';
 
 const data = [
     { name: 'Mar 8', value: 4000 },

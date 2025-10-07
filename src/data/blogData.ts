@@ -1,4 +1,6 @@
-import type { BlogPost } from '../types';
+'use client';
+
+import type { BlogPost } from '@/types';
 
 export const blogData: BlogPost[] = [
   {

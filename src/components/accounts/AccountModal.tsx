@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import type { Account } from '../../types';
-import { XIcon } from '../icons/NavIcons';
+import type { Account } from '@/types';
+import { XIcon } from '@/components/icons/NavIcons';
 
 interface AccountModalProps {
     isOpen: boolean;

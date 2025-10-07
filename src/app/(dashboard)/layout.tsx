@@ -33,13 +33,15 @@ export default function RootLayout({
         }
       };
   return (
-    <html lang="en">
-      <body> 
+
+      <main> 
         <div className="flex h-screen bg-brand-background">
       <Sidebar activePage="Dashboard" onNavigate={handleNavigation} />
+      <div className="w-full">
             {children}
             </div>
-      </body>
-    </html>
+            </div>
+      </main>
+
   )
 }

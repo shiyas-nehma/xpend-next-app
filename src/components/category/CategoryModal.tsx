@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { Category } from '../../types';
-import { XIcon, SparklesIcon } from '../icons/NavIcons';
+import type { Category } from '@/types';
+import { XIcon, SparklesIcon } from '@/components/icons/NavIcons';
 
 interface CategoryModalProps {
   isOpen: boolean;

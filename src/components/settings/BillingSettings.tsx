@@ -1,6 +1,6 @@
 import React from 'react';
 import SettingsCard from './SettingsCard';
-import { CreditCardIcon } from '../icons/NavIcons';
+import { CreditCardIcon } from '@/components/icons/NavIcons';
 
 const BillingSettings: React.FC = () => {
     return (

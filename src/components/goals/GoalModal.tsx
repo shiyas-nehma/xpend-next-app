@@ -3,8 +3,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { Goal } from '../../types';
-import { XIcon, SparklesIcon } from '../icons/NavIcons';
+import type { Goal } from '@/types';
+import { XIcon, SparklesIcon } from '@/components/icons/NavIcons';
 
 interface GoalModalProps {
     isOpen: boolean;

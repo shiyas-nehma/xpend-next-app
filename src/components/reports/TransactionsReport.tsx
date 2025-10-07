@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import ReportCard from './ReportCard';
-import type { Income, Expense } from '../../types';
-import { CalendarIcon } from '../icons/NavIcons';
+import type { Income, Expense } from '@/types';
+import { CalendarIcon } from '@/components/icons/NavIcons';
 
 type Transaction = (Income | Expense) & { type: 'Income' | 'Expense' };
 

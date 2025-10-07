@@ -1,6 +1,6 @@
 import React from 'react';
-import type { PopularCampaign } from '../../types';
-import { ChevronDownIcon } from '../icons/NavIcons';
+import type { PopularCampaign } from '@/types';
+import { ChevronDownIcon } from '@/components/icons/NavIcons';
 
 const campaigns: PopularCampaign[] = [
   { rank: 1, name: 'IBO Adve...', admin: { name: 'Samuel', avatar: 'c1' }, dateAdded: '02/14/2019', business: 'Advertising', followers: { avatars: ['f1', 'f2', 'f3', 'f4'], count: '99+' }, status: 'Public', operation: 'Join' },

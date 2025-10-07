@@ -3,8 +3,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import type { Goal } from '../../types';
-import { DotsVerticalIcon, PencilIcon, TrashIcon, CheckCircleIcon } from '../icons/NavIcons';
+import type { Goal } from '@/types';
+import { DotsVerticalIcon, PencilIcon, TrashIcon, CheckCircleIcon } from '@/components/icons/NavIcons';
 
 interface GoalCardProps {
     goal: Goal;

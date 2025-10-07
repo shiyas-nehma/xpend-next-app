@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react';
-import { Logo } from '../icons/NavIcons';
+import { Logo } from '@/components/icons/NavIcons';
 
 interface FooterProps {
     onNavigateToBlog: () => void;

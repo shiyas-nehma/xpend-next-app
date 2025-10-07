@@ -1,7 +1,7 @@
 
 import React from 'react';
-import type { Goal } from '../../types';
-import { PencilIcon, TrashIcon } from '../icons/NavIcons';
+import type { Goal } from '@/types';
+import { PencilIcon, TrashIcon } from '@/components/icons/NavIcons';
 
 const statusStyles = {
     Active: { dot: 'bg-blue-400' },
