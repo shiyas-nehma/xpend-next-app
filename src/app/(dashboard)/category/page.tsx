@@ -806,19 +806,23 @@ export default function CategoryPage() {
                                     </motion.div>
                                 </div>
                                 <motion.div 
-                                  className="absolute top-3 right-3 flex items-center rounded-md bg-brand-surface-2/80 backdrop-blur-sm border border-brand-border overflow-hidden opacity-100 transition-opacity duration-300 z-10"
+                                  className="absolute top-3 right-3 flex items-center rounded-md bg-brand-surface-2/80 backdrop-blur-sm border border-brand-border overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"
                                   initial={{ opacity: 0, scale: 0.8 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  whileHover={{ scale: 1.05 }}
+                                  animate={{ opacity: 0, scale: 1 }}
+                                  whileHover={{ scale: 1.05, opacity: 1 }}
                                   transition={{ duration: 0.2 }}
                                 >
                                     <motion.button 
-                                      className="p-1.5 text-brand-text-secondary hover:text-brand-text-primary hover:bg-brand-border transition-colors" 
+                                      className="p-1.5 text-brand-text-secondary hover:text-brand-text-primary hover:bg-brand-border/50 transition-all duration-200" 
                                       title={`Edit ${category.name}`} 
                                       aria-label={`Edit ${category.name} category`}
-                                      whileHover={{ scale: 1.1, backgroundColor: "rgba(59, 130, 246, 0.1)" }}
+                                      whileHover={{ 
+                                        scale: 1.1, 
+                                        backgroundColor: "rgba(59, 130, 246, 0.1)",
+                                        color: "rgb(59 130 246)"
+                                      }}
                                       whileTap={{ scale: 0.95 }}
-                                      transition={{ type: "spring", stiffness: 400 }}
+                                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleEdit(category);
@@ -827,12 +831,16 @@ export default function CategoryPage() {
                                       <PencilIcon className="w-4 h-4" />
                                     </motion.button>
                                     <motion.button 
-                                      className="p-1.5 text-brand-text-secondary hover:text-red-400 hover:bg-brand-border transition-colors border-l border-brand-border" 
+                                      className="p-1.5 text-brand-text-secondary hover:text-red-400 hover:bg-brand-border/50 transition-all duration-200 border-l border-brand-border" 
                                       title={`Delete ${category.name}`} 
                                       aria-label={`Delete ${category.name} category`}
-                                      whileHover={{ scale: 1.1, backgroundColor: "rgba(239, 68, 68, 0.1)" }}
+                                      whileHover={{ 
+                                        scale: 1.1, 
+                                        backgroundColor: "rgba(239, 68, 68, 0.1)",
+                                        color: "rgb(239 68 68)"
+                                      }}
                                       whileTap={{ scale: 0.95 }}
-                                      transition={{ type: "spring", stiffness: 400 }}
+                                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleDeleteRequest(category.id);

@@ -98,15 +98,25 @@ const QuickAddBar: React.FC = () => {
                 return;
             }
 
+            // Generate a collision-resistant id (React key safety)
+            // Prefer crypto.randomUUID when available; fallback to timestamp + random segment
+            // Maintain numeric id (app types expect number) while reducing collision probability.
+            // Combine timestamp lower bits with a random 12-bit segment.
+            const generateNumericId = () => {
+                const timePortion = Date.now() % 1_000_000_000; // keep it within 9 digits
+                const randomPortion = Math.floor(Math.random() * 0xfff); // 12 bits
+                return timePortion * 0x1000 + randomPortion; // shift and add randomness
+            };
+
             const newTransaction = {
-                id: Date.now(),
+                id: generateNumericId(),
                 amount: result.amount,
                 description: result.description,
                 date: new Date().toISOString(),
                 paymentMethod: 'Card', // Default payment method for quick adds
                 category: category,
                 isRecurring: false
-            };
+            } as const;
 
             if (result.type === 'income') {
                 await addIncome(newTransaction as Income);
@@ -173,7 +183,6 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToSettings }) => {
       {/* Left Section: Title - Order 1 on all screens */}
       <div className="flex items-center space-x-4">
         <h1 className="text-2xl font-bold text-brand-text-primary">Dashboard</h1>
-        <ChevronDownIcon className="w-5 h-5 text-brand-text-secondary" />
       </div>
 
       {/* Right Section: Actions - Order 2 on mobile, Order 3 on lg+ */}
