@@ -5,6 +5,8 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   updateProfile,
+  updateEmail,
+  updatePassword,
   User
 } from 'firebase/auth';
 import { auth } from './config.js';
@@ -19,6 +21,17 @@ export interface SignUpData {
 export interface LoginData {
   email: string;
   password: string;
+}
+
+export interface UpdateProfileData {
+  displayName?: string;
+  photoURL?: string;
+}
+
+export interface UpdateUserData {
+  displayName?: string;
+  email?: string;
+  photoURL?: string;
 }
 
 // Sign up with email and password
@@ -76,6 +89,49 @@ export const logout = async (): Promise<void> => {
 // Get current user
 export const getCurrentUser = (): User | null => {
   return auth.currentUser;
+};
+
+// Update user profile
+export const updateUserProfile = async (data: UpdateUserData): Promise<void> => {
+  try {
+    const user = getCurrentUser();
+    if (!user) {
+      throw new Error('No user is currently logged in');
+    }
+
+    // Update profile (displayName and photoURL)
+    if (data.displayName !== undefined || data.photoURL !== undefined) {
+      const profileData: UpdateProfileData = {};
+      if (data.displayName !== undefined) profileData.displayName = data.displayName;
+      if (data.photoURL !== undefined) profileData.photoURL = data.photoURL;
+      
+      await updateProfile(user, profileData);
+    }
+
+    // Update email if provided
+    if (data.email && data.email !== user.email) {
+      await updateEmail(user, data.email);
+    }
+  } catch (error: any) {
+    console.error('Update profile error:', error);
+    throw new Error(error.message || 'Failed to update profile');
+  }
+};
+
+// Get user profile data
+export const getUserProfile = () => {
+  const user = getCurrentUser();
+  if (!user) return null;
+  
+  return {
+    uid: user.uid,
+    email: user.email || '',
+    displayName: user.displayName || '',
+    photoURL: user.photoURL || '',
+    emailVerified: user.emailVerified,
+    createdAt: user.metadata.creationTime,
+    lastSignIn: user.metadata.lastSignInTime
+  };
 };
 
 // Auth error messages helper
