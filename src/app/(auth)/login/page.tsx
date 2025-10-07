@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { EyeIcon, EyeOffIcon, GoogleIcon, FacebookIcon } from '@/components/icons/NavIcons';
 import { signIn, signInWithGoogle, getAuthErrorMessage } from '@/lib/firebase/auth';
 import { useToast } from '@/hooks/useToast';
+import { loginSchema, type LoginFormData, formatZodErrors, getFieldError, type ValidationErrors } from '@/lib/validations/auth';
+import { z } from 'zod';
 
 const Logo: React.FC = () => (
     <div className="flex items-center space-x-2">
@@ -29,29 +31,102 @@ const SocialButton: React.FC<{ icon: React.ReactNode; label: string; onClick?: (
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState<LoginFormData>({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const router = useRouter();
   const { addToast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (error) setError(''); // Clear error when user starts typing
+    
+    // Clear errors when user starts typing
+    if (error) setError('');
+    
+    // Real-time validation for all fields as user types
+    if (value.trim()) {
+      validateField(name, value);
+    } else {
+      // Clear errors if field is empty
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const validateField = (fieldName: string, value: string) => {
+    try {
+      if (fieldName === 'email') {
+        loginSchema.shape.email.parse(value);
+      } else if (fieldName === 'password') {
+        loginSchema.shape.password.parse(value);
+      }
+      
+      // Clear error for this field if validation passes
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldName];
+        return newErrors;
+      });
+    } catch (error: unknown) {
+      if (error instanceof z.ZodError) {
+        // Get the first error message
+        const fieldError = error.errors?.[0]?.message;
+        if (fieldError) {
+          setValidationErrors(prev => ({
+            ...prev,
+            [fieldName]: [fieldError]
+          }));
+        }
+      }
+    }
+  };
+
+  const handleFieldBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (value.trim()) {
+      validateField(name, value);
+    }
+  };
+
+  const validateForm = (): boolean => {
+    try {
+      loginSchema.parse(formData);
+      setValidationErrors({});
+      return true;
+    } catch (error: unknown) {
+      if (error instanceof z.ZodError) {
+        const formattedErrors = formatZodErrors(error);
+        setValidationErrors(formattedErrors);
+      } else {
+        setValidationErrors({});
+      }
+      return false;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
+    
+    if (!validateForm()) {
+      return;
+    }
+    
+    setLoading(true);
 
     try {
       await signIn(formData);
       addToast('Welcome back!', 'success');
       router.push('/dashboard');
-    } catch (error: any) {
-      const errorMessage = getAuthErrorMessage(error.code) || error.message;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error && error.message.includes('auth/') 
+        ? getAuthErrorMessage(error.message.split('/')[1]) 
+        : error instanceof Error ? error.message : 'Failed to sign in';
       setError(errorMessage);
       addToast(errorMessage, 'error');
     } finally {
@@ -67,8 +142,10 @@ export default function LoginPage() {
       await signInWithGoogle();
       addToast('Welcome back!', 'success');
       router.push('/dashboard');
-    } catch (error: any) {
-      const errorMessage = getAuthErrorMessage(error.code) || error.message;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error && error.message.includes('auth/') 
+        ? getAuthErrorMessage(error.message.split('/')[1]) 
+        : error instanceof Error ? error.message : 'Failed to sign in with Google';
       setError(errorMessage);
       addToast(errorMessage, 'error');
     } finally {
@@ -121,16 +198,24 @@ export default function LoginPage() {
               Email Address
             </label>
             <input
-              type="email"
+              type="text"
               id="email"
               name="email"
               value={formData.email}
               onChange={handleInputChange}
+              onBlur={handleFieldBlur}
               required
               disabled={loading}
-              className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-3 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-300
-                         bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50"
+              className={`w-full bg-brand-surface-2 border rounded-lg px-3 py-3 text-brand-text-primary focus:outline-none focus:ring-2 transition-all duration-300
+                         bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50 ${
+                           getFieldError(validationErrors, 'email') 
+                             ? 'border-red-500 focus:ring-red-500' 
+                             : 'border-brand-border focus:ring-brand-blue'
+                         }`}
             />
+            {getFieldError(validationErrors, 'email') && (
+              <p className="mt-1 text-sm text-red-400">{getFieldError(validationErrors, 'email')}</p>
+            )}
           </div>
           <div className="mb-4">
             <div className="flex justify-between items-center mb-2">
@@ -154,8 +239,12 @@ export default function LoginPage() {
                 onChange={handleInputChange}
                 required
                 disabled={loading}
-                className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-3 pr-10 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-300
-                           bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50"
+                className={`w-full bg-brand-surface-2 border rounded-lg px-3 py-3 pr-10 text-brand-text-primary focus:outline-none focus:ring-2 transition-all duration-300
+                           bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50 ${
+                             getFieldError(validationErrors, 'password') 
+                               ? 'border-red-500 focus:ring-red-500' 
+                               : 'border-brand-border focus:ring-brand-blue'
+                           }`}
               />
               <button
                 type="button"
@@ -166,6 +255,32 @@ export default function LoginPage() {
                 {showPassword ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
               </button>
             </div>
+            {getFieldError(validationErrors, 'password') && (
+              <div className="mt-1 text-sm text-red-400">
+                {(() => {
+                  const errorMessage = getFieldError(validationErrors, 'password');
+                  if (errorMessage && errorMessage.includes('||')) {
+                    const parts = errorMessage.split('||');
+                    const title = parts[0];
+                    const items = parts.slice(1);
+                    return (
+                      <div>
+                        <div className="mb-2">{title}</div>
+                        <ul className="list-none space-y-1">
+                          {items.map((item, index) => (
+                            <li key={index} className="flex items-start ml-2">
+                              <span className="text-red-400 mr-2 mt-0.5">•</span>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  }
+                  return <div>{errorMessage}</div>;
+                })()}
+              </div>
+            )}
           </div>
           <button
             type="submit"
@@ -179,7 +294,7 @@ export default function LoginPage() {
           </button>
         </form>
         <p className="text-center text-sm text-brand-text-secondary mt-8">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <button
                 onClick={handleNavigateToSignup}
                 className="font-medium text-brand-blue hover:underline focus:outline-none"

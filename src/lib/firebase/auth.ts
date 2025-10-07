@@ -7,22 +7,11 @@ import {
   updateProfile,
   User
 } from 'firebase/auth';
-import { auth } from './config.js';
-
-// Types for auth functions
-export interface SignUpData {
-  email: string;
-  password: string;
-  fullName: string;
-}
-
-export interface LoginData {
-  email: string;
-  password: string;
-}
+import { auth } from './config';
+import { LoginFormData, SignupFormData } from '@/lib/validations/auth';
 
 // Sign up with email and password
-export const signUp = async ({ email, password, fullName }: SignUpData): Promise<User> => {
+export const signUp = async ({ email, password, fullName }: Omit<SignupFormData, 'confirmPassword'>): Promise<User> => {
   try {
     console.log('Attempting to create user with:', { email, fullName }); // Debug log
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -37,19 +26,21 @@ export const signUp = async ({ email, password, fullName }: SignUpData): Promise
     
     console.log('Profile updated successfully'); // Debug log
     return user;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Sign up error:', error); // Debug log
-    throw new Error(error.message || 'Failed to create account');
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create account';
+    throw new Error(errorMessage);
   }
 };
 
 // Sign in with email and password
-export const signIn = async ({ email, password }: LoginData): Promise<User> => {
+export const signIn = async ({ email, password }: LoginFormData): Promise<User> => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return userCredential.user;
-  } catch (error: any) {
-    throw new Error(error.message || 'Failed to sign in');
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to sign in';
+    throw new Error(errorMessage);
   }
 };
 
@@ -59,8 +50,9 @@ export const signInWithGoogle = async (): Promise<User> => {
     const provider = new GoogleAuthProvider();
     const userCredential = await signInWithPopup(auth, provider);
     return userCredential.user;
-  } catch (error: any) {
-    throw new Error(error.message || 'Failed to sign in with Google');
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to sign in with Google';
+    throw new Error(errorMessage);
   }
 };
 
@@ -68,8 +60,9 @@ export const signInWithGoogle = async (): Promise<User> => {
 export const logout = async (): Promise<void> => {
   try {
     await signOut(auth);
-  } catch (error: any) {
-    throw new Error(error.message || 'Failed to sign out');
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to sign out';
+    throw new Error(errorMessage);
   }
 };
 
