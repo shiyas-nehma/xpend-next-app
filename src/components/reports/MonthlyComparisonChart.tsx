@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
-import type { Income, Expense } from '../../types';
-import ReportCard from './ReportCard';
+import type { Income, Expense } from '@/types';
+import ReportCard from '@/components/reports/ReportCard';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {

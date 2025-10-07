@@ -2,15 +2,15 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import Header from '../../components/layout/Header';
-import Sidebar from '../../components/layout/Sidebar';
-import MyCampaignsCard from '../../components/dashboard/AccountsHeader'; // Repurposed for MyCampaignsCard
-import OverviewChart from '../../components/dashboard/CashFlowChart'; // Repurposed for OverviewChart
-import TopCampaignsCard from '../../components/dashboard/ActionButtons'; // Repurposed for TopCampaignsCard
-import TotalBalanceCard from '../../components/dashboard/StatCard'; // Repurposed for TotalBalanceCard
-import AdsCard from '../../components/dashboard/BillPaymentList'; // Repurposed for AdsCard
-import PremiumCard from '../../components/dashboard/DonutChartCard'; // Repurposed for PremiumCard
-import PopularCampaignsTable from '../../components/dashboard/TransactionsTable'; // Repurposed for PopularCampaignsTable
+import Header from '@/components/layout/Header';
+import Sidebar from '@/components/layout/Sidebar';
+import MyCampaignsCard from '@/components/dashboard/AccountsHeader'; // Repurposed for MyCampaignsCard
+import OverviewChart from '@/components/dashboard/CashFlowChart'; // Repurposed for OverviewChart
+import TopCampaignsCard from '@/components/dashboard/ActionButtons'; // Repurposed for TopCampaignsCard
+import TotalBalanceCard from '@/components/dashboard/StatCard'; // Repurposed for TotalBalanceCard
+import AdsCard from '@/components/dashboard/BillPaymentList'; // Repurposed for AdsCard
+import PremiumCard from '@/components/dashboard/DonutChartCard'; // Repurposed for PremiumCard
+import PopularCampaignsTable from '@/components/dashboard/TransactionsTable'; // Repurposed for PopularCampaignsTable
 
 const DashboardPage: React.FC = () => {
   const router = useRouter();

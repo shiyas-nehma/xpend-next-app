@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import ProfileSettings from '../../components/settings/ProfileSettings';
-import NotificationSettings from '../../components/settings/NotificationSettings';
-import BillingSettings from '../../components/settings/BillingSettings';
-import SecuritySettings from '../../components/settings/SecuritySettings';
+import ProfileSettings from '@/components/settings/ProfileSettings';
+import NotificationSettings from '@/components/settings/NotificationSettings';
+import BillingSettings from '@/components/settings/BillingSettings';
+import SecuritySettings from '@/components/settings/SecuritySettings';
 
 const TABS = {
   PROFILE: 'Profile',

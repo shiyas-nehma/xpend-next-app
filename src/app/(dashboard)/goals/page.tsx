@@ -3,16 +3,16 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import type { Goal } from '../types';
-import { mockGoals } from '../../data/mockData';
-import { useToast } from '../../hooks/useToast';
-import { PlusIcon, MagnifyingGlassIcon, TrashIcon, CheckCircleIcon, GridIcon, ListIcon } from '../../components/icons/NavIcons';
-import EmptyState from '../../components/common/EmptyState';
-import EmptyStateIcon from '../../components/icons/EmptyStateIcon';
-import ConfirmationModal from '../../components/common/ConfirmationModal';
-import GoalCard from '../../components/goals/GoalCard';
-import GoalModal from '../../components/goals/GoalModal';
-import GoalListItem from '../../components/goals/GoalListItem';
+import type { Goal } from '@/types';
+import { mockGoals } from '@/data/mockData';
+import { useToast } from '@/hooks/useToast';
+import { PlusIcon, MagnifyingGlassIcon, TrashIcon, CheckCircleIcon, GridIcon, ListIcon } from '@/components/icons/NavIcons';
+import EmptyState from '@/components/common/EmptyState';
+import EmptyStateIcon from '@/components/icons/EmptyStateIcon';
+import ConfirmationModal from '@/components/common/ConfirmationModal';
+import GoalCard from '@/components/goals/GoalCard';
+import GoalModal from '@/components/goals/GoalModal';
+import GoalListItem from '@/components/goals/GoalListItem';
 
 const FilterSelect: React.FC<{ value: string; onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void; children: React.ReactNode; }> = ({ value, onChange, children }) => (
     <select value={value} onChange={onChange} className="bg-brand-surface border border-brand-border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue text-brand-text-primary">

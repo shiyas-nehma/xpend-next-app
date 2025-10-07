@@ -3,13 +3,13 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import Header from '../../components/landing/Header';
-import Hero from '../../components/landing/Hero';
-import BentoGridFeatures from '../../components/landing/BentoGridFeatures';
-import Pricing from '../../components/landing/Pricing';
-import Testimonials from '../../components/landing/Testimonials';
-import CTA from '../../components/landing/CTA';
-import Footer from '../../components/landing/Footer';
+import Header from '@/components/landing/Header';
+import Hero from '@/components/landing/Hero';
+import BentoGridFeatures from '@/components/landing/BentoGridFeatures';
+import Pricing from '@/components/landing/Pricing';
+import Testimonials from '@/components/landing/Testimonials';
+import CTA from '@/components/landing/CTA';
+import Footer from '@/components/landing/Footer';
 
 export default function LandingPage() {
   const router = useRouter();

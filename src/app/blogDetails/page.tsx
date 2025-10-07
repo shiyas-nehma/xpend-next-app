@@ -2,11 +2,11 @@
 
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { BlogPost } from '../../types';
-import Header from '../../components/landing/Header';
-import Footer from '../../components/landing/Footer';
-import { ArrowLeftIcon } from '../../components/icons/NavIcons';
-import { blogData } from '../../data/blogData';
+import type { BlogPost } from '@/types';
+import Header from '@/components/landing/Header';
+import Footer from '@/components/landing/Footer';
+import { ArrowLeftIcon } from '@/components/icons/NavIcons';
+import { blogData } from '@/data/blogData';
 
 export default function BlogDetailsPage() {
   const router = useRouter();

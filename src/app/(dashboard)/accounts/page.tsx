@@ -2,14 +2,14 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, BankIcon, CreditCardIcon, ChartLineIcon, DocumentTextIcon, PiggyBankIcon } from '../../components/icons/NavIcons';
-import type { Account } from '../../types';
-import { mockAccounts } from '../../data/mockData';
-import AccountModal from '../../components/accounts/AccountModal';
-import ConfirmationModal from '../../components/common/ConfirmationModal';
-import { useToast } from '../../hooks/useToast';
-import EmptyState from '../../components/common/EmptyState';
-import EmptyStateIcon from '../../components/icons/EmptyStateIcon';
+import { PlusIcon, PencilIcon, TrashIcon, BankIcon, CreditCardIcon, ChartLineIcon, DocumentTextIcon, PiggyBankIcon } from '@/components/icons/NavIcons';
+import type { Account } from '@/types';
+import { mockAccounts } from '@/data/mockData';
+import AccountModal from '@/components/accounts/AccountModal';
+import ConfirmationModal from '@/components/common/ConfirmationModal';
+import { useToast } from '@/hooks/useToast';
+import EmptyState from '@/components/common/EmptyState';
+import EmptyStateIcon from '@/components/icons/EmptyStateIcon';
 
 const accountTypeIcons: Record<Account['type'], React.ReactNode> = {
     'Checking': <BankIcon />,

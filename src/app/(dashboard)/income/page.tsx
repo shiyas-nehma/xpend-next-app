@@ -3,14 +3,14 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, XIcon, CreditCardIcon, CashIcon, BankIcon, ChevronDownIcon, MagnifyingGlassIcon, GridIcon, ListIcon, RefreshIcon } from '../../components/icons/NavIcons';
-import type { Income, Category, Recurrence } from '../types';
-import CategoryModal from '../../components/category/CategoryModal';
-import ConfirmationModal from '../../components/common/ConfirmationModal';
-import EmptyState from '../../components/common/EmptyState';
-import EmptyStateIcon from '../../components/icons/EmptyStateIcon';
-import { useToast } from '../../hooks/useToast';
-import { useData } from '../../hooks/useData';
+import { PlusIcon, PencilIcon, TrashIcon, XIcon, CreditCardIcon, CashIcon, BankIcon, ChevronDownIcon, MagnifyingGlassIcon, GridIcon, ListIcon, RefreshIcon } from '@/components/icons/NavIcons';
+import type { Income, Category, Recurrence } from '@/types';
+import CategoryModal from '@/components/category/CategoryModal';
+import ConfirmationModal from '@/components/common/ConfirmationModal';
+import EmptyState from '@/components/common/EmptyState';
+import EmptyStateIcon from '@/components/icons/EmptyStateIcon';
+import { useToast } from '@/hooks/useToast';
+import { useData } from '@/hooks/useData';
 
 const paymentMethodIcons: Record<Income['paymentMethod'], React.ReactNode> = {
   Card: <CreditCardIcon className="w-4 h-4" />,

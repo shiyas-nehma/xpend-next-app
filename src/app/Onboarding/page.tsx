@@ -10,8 +10,8 @@ import {
     GoalsVisual, 
     AIInsightsVisual, 
     FinalSetupVisual
-} from '../../components/onboarding/OnboardingVisuals';
-import { CheckIcon } from '../../components/icons/NavIcons';
+} from '@/components/onboarding/OnboardingVisuals';
+import { CheckIcon } from '@/components/icons/NavIcons';
 
 const variants = {
     enter: (direction: number) => ({

@@ -1,8 +1,6 @@
 
 'use client';
-
 import React from 'react';
-import { useRouter } from 'next/navigation';
 import Header from '@/components/landing/Header';
 import Hero from '@/components/landing/Hero';
 import BentoGridFeatures from '@/components/landing/BentoGridFeatures';
@@ -11,16 +9,12 @@ import Testimonials from '@/components/landing/Testimonials';
 import CTA from '@/components/landing/CTA';
 import Footer from '@/components/landing/Footer';
 
-export default function LandingPage() {
-  const router = useRouter();
+interface LandingPageProps {
+  onEnterApp: (page: 'login' | 'signup') => void;
+  onNavigateToBlog: () => void;
+}
 
-  const handleEnterApp = (page: 'login' | 'signup') => {
-    router.push(`/${page}`);
-  };
-
-  const handleNavigateToBlog = () => {
-    router.push('/blog');
-  };
+const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onNavigateToBlog }) => {
   return (
     <div className="bg-brand-bg font-sans text-brand-text-primary antialiased">
         <div id="background-container" className="fixed inset-0 -z-10">
@@ -28,17 +22,19 @@ export default function LandingPage() {
             <div className="absolute top-0 right-0 w-1/2 h-full bg-[radial-gradient(circle_at_top_right,_rgba(255,199,0,0.1),_transparent_40%)]"></div>
         </div>
         
-        <Header onEnterApp={handleEnterApp} onNavigateToBlog={handleNavigateToBlog} />
+        <Header onEnterApp={onEnterApp} onNavigateToBlog={onNavigateToBlog} />
         
         <main>
-            <Hero onEnterApp={handleEnterApp} />
+            <Hero onEnterApp={onEnterApp} />
             <BentoGridFeatures />
-            <Pricing onEnterApp={handleEnterApp} />
+            <Pricing onEnterApp={onEnterApp} />
             <Testimonials />
-            <CTA onEnterApp={handleEnterApp} />
+            <CTA onEnterApp={onEnterApp} />
         </main>
         
-        <Footer onNavigateToBlog={handleNavigateToBlog} />
+        <Footer onNavigateToBlog={onNavigateToBlog} />
     </div>
   );
-}
+};
+
+export default LandingPage;

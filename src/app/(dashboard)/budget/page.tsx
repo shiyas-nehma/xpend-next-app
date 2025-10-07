@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import type { Category } from '../../types';
-import { useData } from '../../hooks/useData';
+import type { Category } from '@/types';
+import { useData } from '@/hooks/useData';
 
 
 interface BudgetStatusCardProps {

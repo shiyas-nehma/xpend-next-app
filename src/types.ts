@@ -26,6 +26,18 @@ export interface Expense {
   category: Category;
   date: string;
   account?: Account;
+  paymentMethod: 'Card' | 'Cash' | 'Bank';
+  recurrence?: Recurrence;
+}
+
+export interface Expense {
+  id: number;
+  description: string;
+  amount: number;
+  date: string; // ISO string for simplicity
+  paymentMethod: 'Card' | 'Cash' | 'Bank';
+  category: Category;
+  recurrence?: Recurrence;
 }
 
 export interface Income {
@@ -73,3 +85,51 @@ export interface BlogPost {
   excerpt: string;
   content: string;
 }
+export interface Recurrence {
+  frequency: 'Daily' | 'Weekly' | 'Monthly' | 'Yearly';
+  end: {
+    type: 'Never' | 'After' | 'OnDate';
+    value?: number | string; // Occurrences or date string
+  };
+}
+
+
+export interface Campaign {
+  name: string;
+  followers: string;
+  change: string;
+  avatars: string[];
+}
+
+export interface PopularCampaign {
+  rank: number;
+  name: string;
+  admin: { name: string; avatar: string; isYou?: boolean };
+  dateAdded: string;
+  business: string;
+  followers: { avatars: string[]; count: string };
+  status: 'Public' | 'Private';
+  operation: 'Join' | 'Request';
+}
+
+
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
+
+export interface Toast {
+  id: number;
+  message: string;
+  type: ToastType;
+}
+
+export interface Message {
+  role: 'user' | 'model';
+  content: string;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  messages: Message[];
+}
+
+

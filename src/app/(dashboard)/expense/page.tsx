@@ -4,14 +4,14 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { PlusIcon, PencilIcon, TrashIcon, XIcon, CreditCardIcon, CashIcon, BankIcon, DocumentTextIcon, MagnifyingGlassIcon, GridIcon, ListIcon, RefreshIcon } from '../../components/icons/NavIcons';
-import type { Expense, Category, Recurrence } from '../types';
-import CategoryModal from '../../components/category/CategoryModal';
-import ConfirmationModal from '../../components/common/ConfirmationModal';
-import EmptyState from '../../components/common/EmptyState';
-import EmptyStateIcon from '../../components/icons/EmptyStateIcon';
-import { useToast } from '../../hooks/useToast';
-import { useData } from '../../hooks/useData';
+import { PlusIcon, PencilIcon, TrashIcon, XIcon, CreditCardIcon, CashIcon, BankIcon, DocumentTextIcon, MagnifyingGlassIcon, GridIcon, ListIcon, RefreshIcon } from '@/components/icons/NavIcons';
+import type { Expense, Category, Recurrence } from '@/types';
+import CategoryModal from '@/components/category/CategoryModal';
+import ConfirmationModal from '@/components/common/ConfirmationModal';
+import EmptyState from '@/components/common/EmptyState';
+import EmptyStateIcon from '@/components/icons/EmptyStateIcon';
+import { useToast } from '@/hooks/useToast';
+import { useData } from '@/hooks/useData';
 
 const paymentMethodIcons: Record<Expense['paymentMethod'], React.ReactNode> = {
   Card: <CreditCardIcon className="w-4 h-4" />,

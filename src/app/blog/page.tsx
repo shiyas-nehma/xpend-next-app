@@ -2,12 +2,12 @@
 
 import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import type { BlogPost } from '../../types';
-import BlogCard from '../../components/blog/BlogCard';
-import Header from '../../components/landing/Header';
-import Footer from '../../components/landing/Footer';
-import { MagnifyingGlassIcon } from '../../components/icons/NavIcons';
-import { blogData } from '../../data/blogData';
+import type { BlogPost } from '@/types';
+import BlogCard from '@/components/blog/BlogCard';
+import Header from '@/components/landing/Header';
+import Footer from '@/components/landing/Footer';
+import { MagnifyingGlassIcon } from '@/components/icons/NavIcons';
+import { blogData } from '@/data/blogData';
 
 export default function BlogPage() {
   const router = useRouter();

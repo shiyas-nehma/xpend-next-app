@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { EyeIcon, EyeOffIcon, GoogleIcon, FacebookIcon } from '../../components/icons/NavIcons';
+import { EyeIcon, EyeOffIcon, GoogleIcon, FacebookIcon } from '@/components/icons/NavIcons';
 
 const Logo: React.FC = () => (
     <div className="flex items-center space-x-2">
@@ -24,19 +24,23 @@ const SocialButton: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon
 );
 
 
-export default function SignupPage() {
+export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Handle signup logic here, then redirect to onboarding
-    router.push('/onboarding');
+    // Handle login logic here
+    // For now, redirect to dashboard after successful login
+    router.push('/dashboard');
   };
 
-  const handleNavigateToLogin = () => {
-    router.push('/login');
+  const handleNavigateToSignup = () => {
+    router.push('/signup');
+  };
+
+  const handleNavigateToForgotPassword = () => {
+    router.push('/forgotpassword');
   };
 
   return (
@@ -50,8 +54,8 @@ export default function SignupPage() {
         <div className="flex justify-center mb-6">
             <Logo />
         </div>
-        <h2 className="text-center text-3xl font-bold text-brand-text-primary mb-2">Create Account</h2>
-        <p className="text-center text-brand-text-secondary mb-6">Join us and take control of your finances.</p>
+        <h2 className="text-center text-3xl font-bold text-brand-text-primary mb-2">Welcome Back</h2>
+        <p className="text-center text-brand-text-secondary mb-6">Sign in to continue</p>
         
         <div className="flex gap-4 mb-6">
             <SocialButton icon={<GoogleIcon />} label="Google" />
@@ -66,38 +70,35 @@ export default function SignupPage() {
         
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="fullName">
-              Full Name
-            </label>
-            <input
-              type="text"
-              id="fullName"
-              placeholder="Hossein"
-              className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-3 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-300
-                         bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)]"
-            />
-          </div>
-          <div className="mb-4">
             <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="email">
               Email Address
             </label>
             <input
               type="email"
               id="email"
-              placeholder="you@example.com"
+              defaultValue="hossein@example.com"
               className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-3 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-300
                          bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)]"
             />
           </div>
           <div className="mb-4">
-            <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="password">
-              Password
-            </label>
+            <div className="flex justify-between items-center mb-2">
+                <label className="block text-brand-text-secondary text-sm font-medium" htmlFor="password">
+                Password
+                </label>
+                <button
+                    type="button"
+                    onClick={handleNavigateToForgotPassword}
+                    className="text-sm font-medium text-brand-blue hover:underline focus:outline-none"
+                >
+                    Forgot password?
+                </button>
+            </div>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
                 id="password"
-                placeholder="••••••••"
+                defaultValue="••••••••"
                 className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-3 pr-10 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-300
                            bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)]"
               />
@@ -117,16 +118,16 @@ export default function SignupPage() {
                       shadow-[0_0_20px_rgba(255,255,255,0.1)]
                       bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]"
           >
-            Create Account
+            Sign In
           </button>
         </form>
         <p className="text-center text-sm text-brand-text-secondary mt-8">
-            Already have an account?{' '}
+            Don't have an account?{' '}
             <button
-                onClick={handleNavigateToLogin}
+                onClick={handleNavigateToSignup}
                 className="font-medium text-brand-blue hover:underline focus:outline-none"
             >
-                Sign in
+                Sign up
             </button>
         </p>
       </div>

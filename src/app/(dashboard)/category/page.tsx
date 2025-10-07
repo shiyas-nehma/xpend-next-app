@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon } from '../../components/icons/NavIcons';
-import CategoryModal from '../../components/category/CategoryModal';
-import ConfirmationModal from '../../components/common/ConfirmationModal';
-import EmptyState from '../../components/common/EmptyState';
-import EmptyStateIcon from '../../components/icons/EmptyStateIcon';
-import type { Category } from '../../types';
-import { useToast } from '../../hooks/useToast';
-import { useData } from '../../hooks/useData';
+import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon } from '@/components/icons/NavIcons';
+import CategoryModal from '@/components/category/CategoryModal';
+import ConfirmationModal from '@/components/common/ConfirmationModal';
+import EmptyState from '@/components/common/EmptyState';
+import EmptyStateIcon from '@/components/icons/EmptyStateIcon';
+import type { Category } from '@/types';
+import { useToast } from '@/hooks/useToast';
+import { useData } from '@/hooks/useData';
 
 const getBudgetStatus = (amount: number, budget: number, type: 'Expense' | 'Income') => {
     if (budget === 0) return { color: 'text-brand-text-secondary', gradient: 'bg-brand-surface-2' };

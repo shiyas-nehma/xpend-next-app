@@ -1,8 +1,8 @@
 import React from 'react';
-import MonthlyComparisonChart from '../../components/reports/MonthlyComparisonChart';
-import MonthlySpendChart from '../../components/reports/MonthlySpendChart';
-import TransactionsReport from '../../components/reports/TransactionsReport';
-import { useData } from '../../hooks/useData';
+import MonthlyComparisonChart from '@/components/reports/MonthlyComparisonChart';
+import MonthlySpendChart from '@/components/reports/MonthlySpendChart';
+import TransactionsReport from '@/components/reports/TransactionsReport';
+import { useData } from '@/hooks/useData';
 
 
 const ReportPage: React.FC = () => {
