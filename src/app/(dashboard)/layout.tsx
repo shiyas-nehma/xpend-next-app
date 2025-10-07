@@ -4,13 +4,16 @@
 import '@/app/globals.css'
 import { ToastProvider } from '@/context/ToastContext'
 import Sidebar from '@/components/layout/Sidebar'
+import MobileNavigation from '@/components/layout/MobileNavigation'
  import { useRouter } from 'next/navigation';
+import { useActivePage } from '@/hooks/useActivePage';
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
       const router = useRouter();
+      const activePage = useActivePage();
     
       const handleNavigation = (page: string) => {
         const pageRoutes: { [key: string]: string } = {
@@ -36,10 +39,11 @@ export default function RootLayout({
 
       <main> 
         <div className="flex h-screen bg-brand-background">
-      <Sidebar activePage="Dashboard" onNavigate={handleNavigation} />
-      <div className="w-full">
+      <Sidebar activePage={activePage} onNavigate={handleNavigation} />
+      <div className="flex-1 md:ml-20 overflow-y-auto pb-16 md:pb-0">
             {children}
             </div>
+            <MobileNavigation activePage={activePage} onNavigate={handleNavigation} />
             </div>
       </main>
 

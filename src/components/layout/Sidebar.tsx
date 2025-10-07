@@ -35,7 +35,7 @@ const Sidebar: React.FC<{ activePage: string, onNavigate: (page: string) => void
   ];
 
   return (
-    <aside className="w-20 bg-brand-surface flex flex-col items-center border-r border-brand-border py-6 z-20">
+    <aside className="fixed left-0 top-0 w-20 h-screen bg-brand-surface hidden md:flex flex-col items-center border-r border-brand-border py-6 z-50">
       <Logo />
       <nav className="w-full flex-1 mt-12 overflow-y-auto min-h-0 scrollbar-hide">
         <ul className="space-y-4 px-4">
