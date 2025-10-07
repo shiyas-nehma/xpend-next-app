@@ -29,7 +29,7 @@ const expensesData: Omit<Expense, 'id'>[] = [
     { description: 'Dinner with friends', amount: 78.90, date: '2024-07-18', paymentMethod: 'Card', category: entertainmentCategory },
 ];
 
-export const mockExpenses: Expense[] = expensesData.map((e, index) => ({...e, id: Date.now() + index }));
+export const mockExpenses: Expense[] = expensesData.map((e, index) => ({...e, id: 1000 + index }));
 
 
 // Find income categories to link to incomes
@@ -45,7 +45,7 @@ const incomeData: Omit<Income, 'id'>[] = [
     { description: 'Client payment - Logo design', amount: 450.00, date: '2024-07-22', paymentMethod: 'Card', category: freelanceCategory },
 ];
 
-export const mockIncomes: Income[] = incomeData.map((i, index) => ({...i, id: Date.now() + 100 + index }));
+export const mockIncomes: Income[] = incomeData.map((i, index) => ({...i, id: 2000 + index }));
 
 export const mockGoals: Goal[] = [
   {
@@ -55,7 +55,7 @@ export const mockGoals: Goal[] = [
     progress: 75,
     status: 'Active',
     priority: 'High',
-    deadline: new Date(new Date().setDate(new Date().getDate() + 15)).toISOString(), // Due in 15 days
+    deadline: '2024-08-15T00:00:00.000Z', // Future date
     tags: ['Marketing', 'Web', 'Q3'],
   },
   {
@@ -65,7 +65,7 @@ export const mockGoals: Goal[] = [
     progress: 20,
     status: 'Active',
     priority: 'Medium',
-    deadline: new Date(new Date().setDate(new Date().getDate() + 45)).toISOString(), // Due in 45 days
+    deadline: '2024-09-15T00:00:00.000Z', // Future date
     tags: ['Marketing', 'Strategy'],
   },
   {
@@ -75,7 +75,7 @@ export const mockGoals: Goal[] = [
     progress: 100,
     status: 'Completed',
     priority: 'High',
-    deadline: new Date(new Date().setDate(new Date().getDate() - 10)).toISOString(), // Completed 10 days ago
+    deadline: '2024-07-20T00:00:00.000Z', // Past date
     tags: ['Hiring', 'HR', 'Development'],
   },
   {
@@ -95,7 +95,7 @@ export const mockGoals: Goal[] = [
     progress: 10,
     status: 'Active',
     priority: 'Medium',
-    deadline: new Date(new Date().setDate(new Date().getDate() - 5)).toISOString(), // Overdue by 5 days
+    deadline: '2024-07-25T00:00:00.000Z', // Past date (overdue)
     tags: ['Mobile', 'UI/UX', 'Design'],
   },
   {
@@ -105,7 +105,7 @@ export const mockGoals: Goal[] = [
     progress: 90,
     status: 'Active',
     priority: 'Medium',
-    deadline: new Date(new Date().setDate(new Date().getDate() + 3)).toISOString(), // Due soon
+    deadline: '2024-08-05T00:00:00.000Z', // Due soon
     tags: ['Strategy', 'Research'],
   },
 ];

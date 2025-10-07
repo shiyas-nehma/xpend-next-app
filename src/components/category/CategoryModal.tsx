@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Category } from '@/types';
 import { XIcon, SparklesIcon } from '@/components/icons/NavIcons';
 
 interface CategoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (category: Omit<Category, 'id' | 'transactions' | 'amount'> & { id?: number }) => void;
+  onSave: (category: Omit<Category, 'id' | 'transactions' | 'amount'> & { id?: number }) => Promise<void>;
   category: Category | null;
 }
 
@@ -67,44 +66,35 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, onSave, 
     setIsSuggesting(true);
     setSuggestionError(null);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: `Analyze the financial category name: "${name}". Suggest a single, most relevant emoji icon, classify the category type (must be 'Expense' or 'Income'), and write a short, one-sentence description for it.`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              icon: {
-                type: Type.STRING,
-                description: 'A single emoji that represents the category.',
-              },
-              type: {
-                type: Type.STRING,
-                description: "The type of the category, must be either 'Expense' or 'Income'.",
-              },
-              description: {
-                type: Type.STRING,
-                description: 'A short, one-sentence description for this financial category.'
-              }
-            },
-            required: ["icon", "type", "description"]
-          },
-        },
-      });
+      // Simple hardcoded suggestions for demo - replace with actual AI service
+      const suggestions: Record<string, { icon: string; type: 'Expense' | 'Income'; description: string }> = {
+        'grocery': { icon: '🛒', type: 'Expense', description: 'Grocery shopping and food purchases' },
+        'food': { icon: '🍔', type: 'Expense', description: 'Restaurant meals and dining out' },
+        'coffee': { icon: '☕', type: 'Expense', description: 'Coffee and beverage purchases' },
+        'salary': { icon: '💰', type: 'Income', description: 'General income and earnings' },
+        'freelance': { icon: '💻', type: 'Income', description: 'Freelance and computer work income' },
+        'entertainment': { icon: '🎬', type: 'Expense', description: 'Entertainment and movies' },
+        'shopping': { icon: '👕', type: 'Expense', description: 'Clothing and apparel purchases' },
+        'home': { icon: '🏠', type: 'Expense', description: 'Home and housing expenses' },
+        'transport': { icon: '🚗', type: 'Expense', description: 'Transportation and vehicle costs' },
+        'health': { icon: '💊', type: 'Expense', description: 'Healthcare and medical expenses' },
+      };
 
-      const result = JSON.parse(response.text);
-      
-      if (result.icon) {
-        setIcon(result.icon);
-      }
-      if (result.type === 'Expense' || result.type === 'Income') {
-        setType(result.type);
-      }
-      if (result.description) {
-        setDescription(result.description);
-      }
+      // Try to match the name with common category keywords
+      const nameKey = Object.keys(suggestions).find(key => 
+        name.toLowerCase().includes(key)
+      );
+
+      const suggestion = nameKey ? suggestions[nameKey] : {
+        icon: '💡',
+        type: (name.toLowerCase().includes('income') || name.toLowerCase().includes('salary') || name.toLowerCase().includes('freelance')) ? 'Income' as const : 'Expense' as const,
+        description: `Category for ${name.toLowerCase()} related transactions`
+      };
+
+      setIcon(suggestion.icon);
+      setType(suggestion.type);
+      setDescription(suggestion.description);
+
     } catch (error) {
       console.error("AI suggestion failed:", error);
       setSuggestionError("Sorry, AI suggestions are unavailable right now.");
@@ -113,16 +103,22 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, onSave, 
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
-      id: category?.id,
-      name,
-      icon,
-      type,
-      budget,
-      description,
-    });
+    try {
+      await onSave({
+        id: category?.id,
+        name,
+        icon,
+        type,
+        budget,
+        description,
+      });
+      onClose();
+    } catch (error) {
+      console.error('Error saving category:', error);
+      // Error handling is done in the parent component via useCategories hook
+    }
   };
 
   const handleIconSelect = (selectedIcon: string) => {

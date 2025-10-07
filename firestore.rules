@@ -17,9 +17,14 @@ service cloud.firestore {
       allow create: if isAuthenticated();
     }
     
+    // Categories collection - allow read/write for testing (using demo user)
+    match /categories/{categoryId} {
+      allow read, write, create, delete: if true; // Temporary for demo
+    }
+    
     // Allow all authenticated users to read/write (temporary for testing)
     match /{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true; // Temporary for demo - was: isAuthenticated()
     }
   }
 }

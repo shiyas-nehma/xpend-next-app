@@ -17,6 +17,8 @@ export interface Category {
   amount: number;
   budget: number;
   description?: string;
+  /** Firestore document ID (string) for stable identification */
+  docId?: string;
 }
 
 export interface Expense {

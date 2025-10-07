@@ -2,6 +2,7 @@ import './globals.css'
 import { DataProvider } from '../context/DataContext'
 import { ToastProvider } from '../context/ToastContext'
 import { AuthProvider } from '../context/AuthContext'
+import Toaster from '../components/common/Toaster'
  
 export default function RootLayout({
   children,
@@ -9,14 +10,15 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" suppressHydrationWarning={true}>
+      <body suppressHydrationWarning={true}>
         <AuthProvider>
-          <DataProvider>
-            <ToastProvider>
+          <ToastProvider>
+            <DataProvider>
               {children}
-            </ToastProvider>
-          </DataProvider>
+            </DataProvider>
+            <Toaster />
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>
