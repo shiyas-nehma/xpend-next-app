@@ -5,6 +5,7 @@ import type { Income, Expense, Category } from '@/types';
 import { useCategories } from '@/hooks/useCategories';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useIncomes } from '@/hooks/useIncomes';
+import { useAuth } from '@/context/AuthContext';
 
 interface DataContextType {
   incomes: Income[];
@@ -43,6 +44,8 @@ interface DataContextType {
 export const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // Auth ensures hooks react to user changes automatically
+  const { user } = useAuth();
   // Use Firebase-integrated categories hook
   const {
     categories,

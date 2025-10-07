@@ -10,6 +10,7 @@ import EmptyStateIcon from '@/components/icons/EmptyStateIcon';
 import type { Category, Expense, Income } from '@/types';
 import { useToast } from '@/hooks/useToast';
 import { useData } from '@/hooks/useData';
+import { useAuth } from '@/context/AuthContext';
 import { AnimatePresence, motion } from 'framer-motion';
 
 // Animation variants
@@ -389,13 +390,23 @@ export default function CategoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategory, setExpandedCategory] = useState<number | null>(null);
   const { addToast } = useToast();
+  const { user, loading: authLoading } = useAuth();
+  const userLocale = typeof window !== 'undefined' ? navigator.language : 'en-US';
 
   const handleAddNew = () => {
+    if (!user) {
+      addToast('Please sign in to add categories', 'error');
+      return;
+    }
     setEditingCategory(null);
     setIsModalOpen(true);
   };
 
   const handleEdit = (category: Category) => {
+    if (!user) {
+      addToast('Please sign in to edit categories', 'error');
+      return;
+    }
     setEditingCategory(category);
     setIsModalOpen(true);
   };
@@ -437,6 +448,10 @@ export default function CategoryPage() {
   };
 
   const handleDeleteRequest = (id: number) => {
+    if (!user) {
+      addToast('Please sign in to delete categories', 'error');
+      return;
+    }
     setDeletingCategoryId(id);
   };
 
@@ -590,17 +605,14 @@ export default function CategoryPage() {
               </div>
               <motion.button 
                 onClick={handleAddNew}
-                className="flex items-center space-x-2 bg-white text-black font-bold py-2 px-4 rounded-lg transition duration-300
-                              shadow-[0_0_20px_rgba(255,255,255,0.1)]
-                              bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]"
-                whileHover={{
+                className={`flex items-center space-x-2 font-bold py-2 px-4 rounded-lg transition duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))] ${!user ? 'opacity-50 cursor-not-allowed' : 'bg-white text-black'}`}
+                disabled={!user}
+                whileHover={user ? {
                   scale: 1.05,
                   boxShadow: "0 10px 25px rgba(255, 255, 255, 0.2)",
                   backgroundColor: "rgba(240, 240, 240, 1)"
-                }}
-                whileTap={{
-                  scale: 0.95
-                }}
+                } : {}}
+                whileTap={user ? { scale: 0.95 } : {}}
                 transition={{
                   type: "spring",
                   stiffness: 400,
@@ -608,12 +620,12 @@ export default function CategoryPage() {
                 }}
               >
                 <motion.div
-                  whileHover={{ rotate: 90 }}
+                  whileHover={user ? { rotate: 90 } : {}}
                   transition={{ duration: 0.2 }}
                 >
                   <PlusIcon className="w-5 h-5" />
                 </motion.div>
-                <span>Add New</span>
+                <span>{user ? 'Add New' : 'Sign in to Add'}</span>
               </motion.button>
             </motion.div>
           )}
@@ -674,24 +686,23 @@ export default function CategoryPage() {
                 primaryAction={
                   <motion.button 
                     onClick={handleAddNew}
-                    className="flex items-center space-x-2 bg-white text-black font-bold py-2 px-4 rounded-lg hover:bg-gray-200 transition duration-300
-                                  shadow-[0_0_20px_rgba(255,255,255,0.1)]
-                                  bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    animate={{ 
+                    className={`flex items-center space-x-2 font-bold py-2 px-4 rounded-lg transition duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))] ${!user ? 'opacity-50 cursor-not-allowed' : 'bg-white text-black hover:bg-gray-200'}`}
+                    disabled={!user}
+                    whileHover={user ? { scale: 1.05 } : {}}
+                    whileTap={user ? { scale: 0.95 } : {}}
+                    animate={user ? { 
                       boxShadow: [
                         "0 0 20px rgba(255,255,255,0.1)",
                         "0 0 30px rgba(255,255,255,0.3)",
                         "0 0 20px rgba(255,255,255,0.1)"
                       ]
-                    }}
-                    transition={{ 
+                    } : {}}
+                    transition={user ? { 
                       boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" }
-                    }}
+                    } : {}}
                   >
                   <PlusIcon className="w-5 h-5" />
-                  <span>Create Category</span>
+                  <span>{user ? 'Create Category' : 'Sign in to Create'}</span>
                 </motion.button>
               }
             /></motion.div>
@@ -846,7 +857,7 @@ export default function CategoryPage() {
                                   animate={{ opacity: 1, scale: 1 }}
                                   transition={{ type: "spring", stiffness: 400 }}
                                 >
-                                  ${actualData.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  ${actualData.amount.toLocaleString(userLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </motion.p>
                                 <div className="flex items-center justify-between">
                                   <p className="text-sm text-brand-text-secondary">
@@ -900,7 +911,7 @@ export default function CategoryPage() {
                                           animate={{ opacity: 1, y: 0 }}
                                           transition={{ duration: 0.3 }}
                                         >
-                                            ${Math.round(actualData.amount)} / ${category.budget}
+                                            ${Math.round(actualData.amount).toLocaleString(userLocale)} / ${category.budget.toLocaleString(userLocale)}
                                         </motion.span>
                                     </div>
                                     <div className="w-full bg-brand-surface-2 rounded-full h-2 overflow-hidden">

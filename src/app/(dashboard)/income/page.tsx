@@ -11,6 +11,58 @@ import EmptyState from '@/components/common/EmptyState';
 import EmptyStateIcon from '@/components/icons/EmptyStateIcon';
 import { useToast } from '@/hooks/useToast';
 import { useData } from '@/hooks/useData';
+import { AnimatePresence, motion } from 'framer-motion';
+
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { 
+    opacity: 0, 
+    y: 20,
+    scale: 0.95
+  },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring" as const,
+      stiffness: 300,
+      damping: 30
+    }
+  },
+  exit: {
+    opacity: 0,
+    y: -20,
+    scale: 0.95,
+    transition: {
+      duration: 0.2
+    }
+  }
+};
+
+const headerVariants = {
+  hidden: { opacity: 0, y: -20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 400,
+      damping: 30
+    }
+  }
+};
 
 const paymentMethodIcons: Record<Income['paymentMethod'], React.ReactNode> = {
   Card: <CreditCardIcon className="w-4 h-4" />,
@@ -115,16 +167,27 @@ const IncomeModal: React.FC<{
         setAmount(formattedValue);
     };
 
-    const handleSaveCategory = (categoryData: Omit<Category, 'id' | 'transactions' | 'amount'> & { id?: number }) => {
-        const newCategory: Category = {
+    const handleSaveCategory = async (categoryData: Omit<Category, 'id' | 'transactions' | 'amount'> & { id?: number }) => {
+        // Build temporary category for add, but rely on addCategory return value to get docId mapping
+        const tempCategory: Category = {
             transactions: 0,
             amount: 0,
             ...categoryData,
             id: Date.now(),
         };
-        addCategory(newCategory);
-        setSelectedCategory(newCategory);
-        setIsCategoryModalOpen(false);
+        try {
+            const created = await addCategory(tempCategory);
+            // Use the returned category (includes Firestore docId & mapped id)
+            if (created) {
+                setSelectedCategory(created);
+            } else {
+                setSelectedCategory(tempCategory); // fallback
+            }
+        } catch (e) {
+            // addCategory already toasts error
+        } finally {
+            setIsCategoryModalOpen(false);
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -191,7 +254,7 @@ const IncomeModal: React.FC<{
                                 </div>
                             </div>
 
-                            <div className="py-6 space-y-4">
+                            <div className="py-6 space-y-4 px-2">
                                 <div>
                                     <label className="block text-brand-text-secondary text-sm font-medium mb-1" htmlFor="description">From</label>
                                     <input type="text" id="description" value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g., Monthly Salary" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue" />
@@ -331,25 +394,66 @@ const IncomeCard: React.FC<{
     isHighlighted: boolean;
 }> = ({ income, onEdit, onDelete, isAnimatingIn, isAnimatingOut, isHighlighted }) => {
     return (
-        <div className={`group relative p-4 bg-brand-surface rounded-2xl border border-brand-border flex flex-col transition-all duration-300 hover:border-brand-blue hover:shadow-lg hover:shadow-brand-blue/10 hover:-translate-y-1
-            ${isAnimatingOut ? 'animate-fade-out-scale' : ''}
-            ${isAnimatingIn ? 'animate-fade-in-scale' : ''}
-            ${isHighlighted ? 'animate-highlight' : ''}`}>
+        <motion.div 
+            className={`group relative p-4 bg-brand-surface rounded-2xl border border-brand-border flex flex-col cursor-pointer
+                ${isHighlighted ? 'animate-highlight' : ''}`}
+            variants={itemVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            whileHover={{
+              y: -8,
+              scale: 1.02,
+              borderColor: "rgb(59 130 246)",
+              boxShadow: "0 25px 50px -12px rgba(59, 130, 246, 0.25)",
+              transition: {
+                type: "spring",
+                stiffness: 400,
+                damping: 25
+              }
+            }}
+            whileTap={{
+              scale: 0.98,
+              transition: { duration: 0.1 }
+            }}
+            layout
+            layoutId={`income-${income.id}`}
+        >
             
             <div className="flex-grow">
                 <div className="flex justify-between items-start">
                     <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-11 h-11 rounded-lg flex items-center justify-center text-2xl shrink-0 relative overflow-hidden bg-blue-500/10">
+                        <motion.div 
+                            className="w-11 h-11 rounded-lg flex items-center justify-center text-2xl shrink-0 relative overflow-hidden bg-blue-500/10"
+                            whileHover={{ 
+                                scale: 1.1,
+                                rotate: 5,
+                                backgroundColor: "rgba(59, 130, 246, 0.15)"
+                            }}
+                            transition={{ type: "spring", stiffness: 400 }}
+                        >
                             <div className="absolute inset-0 rounded-lg bg-[radial-gradient(ellipse_at_center,_rgba(59,130,246,0.2)_0%,_transparent_70%)]"></div>
                             <span className="relative z-10">{income.category.icon}</span>
-                        </div>
-                        <div className="min-w-0">
+                        </motion.div>
+                        <motion.div 
+                            className="min-w-0"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.1 }}
+                        >
                             <p className="font-semibold text-base text-brand-text-primary leading-tight truncate" title={income.description}>{income.description}</p>
                             <p className="text-sm text-brand-text-secondary">{income.category.name}</p>
-                        </div>
+                        </motion.div>
                     </div>
                      <div className="text-right shrink-0 pl-2">
-                         <p className="text-xl font-bold text-blue-400">+{income.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                         <motion.p 
+                            className="text-xl font-bold text-blue-400"
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.2, duration: 0.5, type: "spring" }}
+                         >
+                            +${income.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                         </motion.p>
                     </div>
                 </div>
             </div>
@@ -363,11 +467,32 @@ const IncomeCard: React.FC<{
                  <p className="font-medium">{formatDate(income.date)}</p>
             </div>
 
-            <div className="absolute top-3 right-3 flex items-center rounded-md bg-brand-surface-2/80 backdrop-blur-sm border border-brand-border overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                <button onClick={() => onEdit(income)} className="p-1.5 text-brand-text-secondary hover:text-brand-text-primary hover:bg-brand-border transition-colors" title={`Edit ${income.description}`}><PencilIcon className="w-4 h-4" /></button>
-                <button onClick={() => onDelete(income)} className="p-1.5 text-brand-text-secondary hover:text-red-400 hover:bg-brand-border transition-colors border-l border-brand-border" title={`Delete ${income.description}`}><TrashIcon className="w-4 h-4" /></button>
-            </div>
-        </div>
+            <motion.div 
+                className="absolute top-3 right-3 flex items-center rounded-md bg-brand-surface-2/80 backdrop-blur-sm border border-brand-border overflow-hidden opacity-100 transition-opacity duration-300 z-10"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ scale: 1.05 }}
+            >
+                <motion.button 
+                    onClick={() => onEdit(income)} 
+                    className="p-1.5 text-brand-text-secondary hover:text-brand-text-primary hover:bg-brand-border transition-colors" 
+                    title={`Edit ${income.description}`}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                >
+                    <PencilIcon className="w-4 h-4" />
+                </motion.button>
+                <motion.button 
+                    onClick={() => onDelete(income)} 
+                    className="p-1.5 text-brand-text-secondary hover:text-red-400 hover:bg-brand-border transition-colors border-l border-brand-border" 
+                    title={`Delete ${income.description}`}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                >
+                    <TrashIcon className="w-4 h-4" />
+                </motion.button>
+            </motion.div>
+        </motion.div>
     );
 };
 
@@ -380,21 +505,53 @@ const IncomeListItem: React.FC<{
     isHighlighted: boolean;
 }> = ({ income, onEdit, onDelete, isAnimatingIn, isAnimatingOut, isHighlighted }) => {
     return (
-        <div className={`group relative px-4 py-3 bg-brand-surface rounded-lg border border-brand-border flex items-center gap-4 transition-all duration-300 hover:border-brand-blue hover:bg-brand-surface-2/50
-            ${isAnimatingOut ? 'animate-fade-out-scale' : ''}
-            ${isAnimatingIn ? 'animate-fade-in-scale' : ''}
-            ${isHighlighted ? 'animate-highlight' : ''}`}>
+        <motion.div 
+            className={`group relative px-4 py-3 bg-brand-surface rounded-lg border border-brand-border flex items-center gap-4 cursor-pointer
+                ${isHighlighted ? 'animate-highlight' : ''}`}
+            variants={itemVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            whileHover={{
+              scale: 1.01,
+              borderColor: "rgb(59 130 246)",
+              backgroundColor: "rgba(31, 41, 55, 0.5)",
+              transition: {
+                type: "spring",
+                stiffness: 400,
+                damping: 25
+              }
+            }}
+            whileTap={{
+              scale: 0.98,
+              transition: { duration: 0.1 }
+            }}
+            layout
+            layoutId={`income-list-${income.id}`}
+        >
             
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0 relative overflow-hidden bg-blue-500/10">
+            <motion.div 
+                className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0 relative overflow-hidden bg-blue-500/10"
+                whileHover={{ 
+                    scale: 1.1,
+                    rotate: 5,
+                    backgroundColor: "rgba(59, 130, 246, 0.15)"
+                }}
+                transition={{ type: "spring", stiffness: 400 }}
+            >
                 <div className="absolute inset-0 rounded-lg bg-[radial-gradient(ellipse_at_center,_rgba(59,130,246,0.2)_0%,_transparent_70%)]"></div>
                 <span className="relative z-10">{income.category.icon}</span>
-            </div>
+            </motion.div>
             
             <div className="flex-1 min-w-0 md:grid md:grid-cols-2 md:gap-4 md:items-center">
-                <div>
+                <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 }}
+                >
                     <p className="font-semibold text-sm text-brand-text-primary truncate" title={income.description}>{income.description}</p>
                     <p className="text-xs text-brand-text-secondary">{income.category.name}</p>
-                </div>
+                </motion.div>
                  <div className="hidden md:flex items-center gap-2 text-sm text-brand-text-secondary">
                     {paymentMethodIcons[income.paymentMethod]}
                     <span>{income.paymentMethod}</span>
@@ -407,18 +564,44 @@ const IncomeListItem: React.FC<{
             </div>
             
             <div className="text-right w-32 shrink-0">
-                <p className="text-base font-bold text-blue-400">+{income.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <motion.p 
+                    className="text-base font-bold text-blue-400"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2, duration: 0.5, type: "spring" }}
+                >
+                    +${income.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </motion.p>
             </div>
             
-            <div className="absolute top-1/2 -translate-y-1/2 right-4 flex items-center rounded-md bg-brand-surface-2/80 backdrop-blur-sm border border-brand-border overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                <button onClick={() => onEdit(income)} className="p-1.5 text-brand-text-secondary hover:text-brand-text-primary hover:bg-brand-border transition-colors" title={`Edit ${income.description}`}><PencilIcon className="w-4 h-4" /></button>
-                <button onClick={() => onDelete(income)} className="p-1.5 text-brand-text-secondary hover:text-red-400 hover:bg-brand-border transition-colors border-l border-brand-border" title={`Delete ${income.description}`}><TrashIcon className="w-4 h-4" /></button>
-            </div>
-        </div>
+            <motion.div 
+                className="absolute top-1/2 -translate-y-1/2 right-4 flex items-center rounded-md bg-brand-surface-2/80 backdrop-blur-sm border border-brand-border overflow-hidden opacity-100 transition-opacity duration-300 z-10"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ scale: 1.05 }}
+            >
+                <motion.button 
+                    onClick={() => onEdit(income)} 
+                    className="p-1.5 text-brand-text-secondary hover:text-brand-text-primary hover:bg-brand-border transition-colors" 
+                    title={`Edit ${income.description}`}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                >
+                    <PencilIcon className="w-4 h-4" />
+                </motion.button>
+                <motion.button 
+                    onClick={() => onDelete(income)} 
+                    className="p-1.5 text-brand-text-secondary hover:text-red-400 hover:bg-brand-border transition-colors border-l border-brand-border" 
+                    title={`Delete ${income.description}`}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                >
+                    <TrashIcon className="w-4 h-4" />
+                </motion.button>
+            </motion.div>
+        </motion.div>
     );
 };
-
-
 const IncomePage: React.FC = () => {
     const { incomes, addIncome, updateIncome, deleteIncome } = useData();
     const [editingIncome, setEditingIncome] = useState<Income | null>(null);
@@ -487,23 +670,32 @@ const IncomePage: React.FC = () => {
         setEditingIncome(null);
     };
 
-    const handleSaveIncome = (incomeData: Omit<Income, 'id'> & { id?: number }) => {
-        if (incomeData.id) { // Update
-            updateIncome(incomeData as Income);
-            setHighlightedId(incomeData.id);
-            addToast('Income updated successfully!', 'success');
-            setTimeout(() => setHighlightedId(null), 1200);
-        } else { // Create
-            const newIncome: Income = {
-                ...incomeData,
-                id: Date.now(),
-            };
-            addIncome(newIncome);
-            setAnimatingInId(newIncome.id);
-            addToast('New income added successfully!', 'success');
-            setTimeout(() => setAnimatingInId(null), 500);
+    const handleSaveIncome = async (incomeData: Omit<Income, 'id'> & { id?: number }) => {
+        try {
+            if (incomeData.id) { // Update existing
+                await updateIncome(incomeData as Income);
+                setHighlightedId(incomeData.id);
+                addToast('Income updated successfully!', 'success');
+                setTimeout(() => setHighlightedId(null), 1200);
+            } else { // Create new
+                // Ensure selected category has docId (if user just created one inline)
+                if (!incomeData.category.docId) {
+                    console.warn('Creating income with category missing docId', incomeData.category);
+                }
+                const { id: _ignore, ...payload } = incomeData as any; // remove transient id if present
+                                const createdIncome = await addIncome(payload as Omit<Income, 'id' | 'docId'>) as Income;
+                                if (createdIncome) {
+                                    setAnimatingInId(createdIncome.id);
+                                }
+                addToast('New income added successfully!', 'success');
+                setTimeout(() => setAnimatingInId(null), 500);
+            }
+        } catch (e) {
+            console.error('Failed to save income', e);
+            addToast('Failed to save income', 'error');
+        } finally {
+            handleCloseFlow();
         }
-        handleCloseFlow();
     };
 
     type FilterType = 'All' | 'Card' | 'Cash' | 'Bank';
@@ -511,25 +703,47 @@ const IncomePage: React.FC = () => {
 
     return (
         <>
-            <div className="p-8 flex flex-col h-full">
-                <div className="flex flex-wrap justify-between items-center gap-4 mb-6 flex-shrink-0">
+            <motion.div 
+                className="p-8 flex flex-col h-full"
+                initial="hidden"
+                animate="visible"
+                variants={containerVariants}
+            >
+                <motion.div 
+                    className="flex flex-wrap justify-between items-center gap-4 mb-6 flex-shrink-0"
+                    variants={headerVariants}
+                >
                     <h1 className="text-2xl font-bold text-brand-text-primary">Income</h1>
-                     <div className="flex items-center gap-4">
+                     <motion.div 
+                        className="flex items-center gap-4"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 }}
+                     >
                         {incomes.length > 0 && (
                             <>
-                                <div className="relative">
+                                <motion.div 
+                                    className="relative"
+                                    whileHover={{ scale: 1.02 }}
+                                    transition={{ duration: 0.2 }}
+                                >
                                     <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-secondary w-5 h-5" />
-                                    <input
+                                    <motion.input
                                         type="text"
                                         placeholder="Search incomes..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="bg-brand-surface border border-brand-border rounded-lg py-2 pl-10 pr-4 w-52 md:w-64 focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                                        whileFocus={{
+                                          scale: 1.02,
+                                          borderColor: "rgb(59 130 246)",
+                                          transition: { duration: 0.2 }
+                                        }}
                                     />
-                                </div>
+                                </motion.div>
                                 <div className="hidden sm:flex space-x-1 bg-brand-surface p-1 rounded-lg border border-brand-border">
                                     {filters.map((filter) => (
-                                        <button
+                                        <motion.button
                                             key={filter}
                                             onClick={() => setActiveFilter(filter)}
                                             className={`px-3 py-1 text-sm rounded-md transition-colors ${
@@ -537,113 +751,207 @@ const IncomePage: React.FC = () => {
                                                     ? 'bg-brand-surface-2 text-white shadow-sm'
                                                     : 'text-brand-text-secondary hover:bg-brand-surface-2/50'
                                             }`}
+                                            whileHover={{ 
+                                                scale: 1.05,
+                                                transition: { duration: 0.2 }
+                                            }}
+                                            whileTap={{ 
+                                                scale: 0.95,
+                                                transition: { duration: 0.1 }
+                                            }}
+                                            animate={{
+                                                backgroundColor: activeFilter === filter ? "rgba(59, 130, 246, 0.8)" : "transparent"
+                                            }}
+                                            transition={{
+                                                type: "spring",
+                                                stiffness: 300,
+                                                damping: 30
+                                            }}
                                         >
                                             {filter}
-                                        </button>
+                                        </motion.button>
                                     ))}
                                 </div>
                                 <div className="hidden sm:flex items-center space-x-1 bg-brand-surface p-1 rounded-lg border border-brand-border">
-                                    <button onClick={() => setView('grid')} className={`p-1.5 rounded-md transition-colors ${view === 'grid' ? 'bg-brand-surface-2 text-white' : 'text-brand-text-secondary hover:text-white'}`} title="Grid View" aria-pressed={view === 'grid'}>
+                                    <motion.button 
+                                        onClick={() => setView('grid')} 
+                                        className={`p-1.5 rounded-md transition-colors ${view === 'grid' ? 'bg-brand-surface-2 text-white' : 'text-brand-text-secondary hover:text-white'}`} 
+                                        title="Grid View" 
+                                        aria-pressed={view === 'grid'}
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                    >
                                         <GridIcon className="w-5 h-5" />
-                                    </button>
-                                    <button onClick={() => setView('list')} className={`p-1.5 rounded-md transition-colors ${view === 'list' ? 'bg-brand-surface-2 text-white' : 'text-brand-text-secondary hover:text-white'}`} title="List View" aria-pressed={view === 'list'}>
+                                    </motion.button>
+                                    <motion.button 
+                                        onClick={() => setView('list')} 
+                                        className={`p-1.5 rounded-md transition-colors ${view === 'list' ? 'bg-brand-surface-2 text-white' : 'text-brand-text-secondary hover:text-white'}`} 
+                                        title="List View" 
+                                        aria-pressed={view === 'list'}
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                    >
                                         <ListIcon className="w-5 h-5" />
-                                    </button>
+                                    </motion.button>
                                 </div>
                             </>
                         )}
-                        <button 
+                        <motion.button 
                             onClick={() => setIsAddingNew(true)}
-                            className="flex items-center space-x-2 bg-white text-black font-bold py-2 px-4 rounded-lg hover:bg-gray-200 transition duration-300
+                            className="flex items-center space-x-2 bg-white text-black font-bold py-2 px-4 rounded-lg transition duration-300
                                       shadow-[0_0_20px_rgba(255,255,255,0.1)]
-                                      bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]">
-                            <PlusIcon className="w-5 h-5" />
+                                      bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]"
+                            whileHover={{
+                                scale: 1.05,
+                                boxShadow: "0 10px 25px rgba(255, 255, 255, 0.2)",
+                                backgroundColor: "rgba(240, 240, 240, 1)"
+                            }}
+                            whileTap={{
+                                scale: 0.95
+                            }}
+                            transition={{
+                                type: "spring",
+                                stiffness: 400,
+                                damping: 25
+                            }}
+                        >
+                            <motion.div
+                                whileHover={{ rotate: 90 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <PlusIcon className="w-5 h-5" />
+                            </motion.div>
                             <span className="hidden sm:inline">Add New Income</span>
-                        </button>
-                    </div>
-                </div>
+                        </motion.button>
+                    </motion.div>
+                </motion.div>
 
                 <div className="flex-grow">
                   {incomes.length === 0 ? (
-                      <EmptyState
-                        icon={<EmptyStateIcon />}
-                        title="No income recorded"
-                        message="Get started by adding your first income source. It will appear here."
-                        primaryAction={
-                          <button 
-                              onClick={() => setIsAddingNew(true)}
-                              className="flex items-center space-x-2 bg-white text-black font-bold py-2 px-4 rounded-lg hover:bg-gray-200 transition duration-300
-                                            shadow-[0_0_20px_rgba(255,255,255,0.1)]
-                                            bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]">
-                              <PlusIcon className="w-5 h-5" />
-                              <span>Add First Income</span>
-                          </button>
-                        }
-                      />
-                  ) : filteredIncomes.length === 0 ? (
-                        <EmptyState
+                      <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.5 }}
+                      >
+                          <EmptyState
                             icon={<EmptyStateIcon />}
-                            title={searchQuery ? 'No Results Found' : `No ${activeFilter} income`}
-                            message={
-                                searchQuery 
-                                ? <>Your search for "{searchQuery}" did not return any results.</>
-                                : <>There is no income that matches the selected filter.</>
-                            }
+                            title="No income recorded"
+                            message="Get started by adding your first income source. It will appear here."
                             primaryAction={
-                            <button 
-                                onClick={() => {
-                                    if (searchQuery) setSearchQuery('');
-                                    else setActiveFilter('All');
-                                }}
-                                className="flex items-center space-x-2 bg-brand-surface-2 border border-brand-border font-bold py-2 px-4 rounded-lg hover:bg-brand-border transition duration-300">
-                                <span>{searchQuery ? 'Clear Search' : 'Show All Income'}</span>
-                            </button>
+                              <motion.button 
+                                  onClick={() => setIsAddingNew(true)}
+                                  className="flex items-center space-x-2 bg-white text-black font-bold py-2 px-4 rounded-lg hover:bg-gray-200 transition duration-300
+                                                shadow-[0_0_20px_rgba(255,255,255,0.1)]
+                                                bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]"
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  animate={{ 
+                                    boxShadow: [
+                                      "0 0 20px rgba(255,255,255,0.1)",
+                                      "0 0 30px rgba(255,255,255,0.3)",
+                                      "0 0 20px rgba(255,255,255,0.1)"
+                                    ]
+                                  }}
+                                  transition={{ 
+                                    boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                                  }}
+                              >
+                                  <PlusIcon className="w-5 h-5" />
+                                  <span>Add First Income</span>
+                              </motion.button>
                             }
-                        />
+                          />
+                      </motion.div>
+                  ) : filteredIncomes.length === 0 ? (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5 }}
+                        >
+                            <EmptyState
+                                icon={<EmptyStateIcon />}
+                                title={searchQuery ? 'No Results Found' : `No ${activeFilter} income`}
+                                message={
+                                    searchQuery 
+                                    ? <>Your search for "{searchQuery}" did not return any results.</>
+                                    : <>There is no income that matches the selected filter.</>
+                                }
+                                primaryAction={
+                                <button 
+                                    onClick={() => {
+                                        if (searchQuery) setSearchQuery('');
+                                        else setActiveFilter('All');
+                                    }}
+                                    className="flex items-center space-x-2 bg-brand-surface-2 border border-brand-border font-bold py-2 px-4 rounded-lg hover:bg-brand-border transition duration-300">
+                                    <span>{searchQuery ? 'Clear Search' : 'Show All Income'}</span>
+                                </button>
+                                }
+                            />
+                        </motion.div>
                   ) : (
                     <>
                         {view === 'grid' ? (
-                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                {filteredIncomes.map(income => (
-                                    <IncomeCard
-                                        key={income.id}
-                                        income={income}
-                                        onEdit={handleEdit}
-                                        onDelete={handleDeleteRequest}
-                                        isAnimatingIn={animatingInId === income.id}
-                                        isAnimatingOut={animatingOutId === income.id}
-                                        isHighlighted={highlightedId === income.id}
-                                    />
-                                ))}
-                            </div>
+                           <motion.div 
+                               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                               variants={containerVariants}
+                               initial="hidden"
+                               animate="visible"
+                           >
+                               <AnimatePresence mode="popLayout">
+                                    {filteredIncomes.map(income => (
+                                        <IncomeCard
+                                            key={income.id}
+                                            income={income}
+                                            onEdit={handleEdit}
+                                            onDelete={handleDeleteRequest}
+                                            isAnimatingIn={animatingInId === income.id}
+                                            isAnimatingOut={animatingOutId === income.id}
+                                            isHighlighted={highlightedId === income.id}
+                                        />
+                                    ))}
+                                </AnimatePresence>
+                            </motion.div>
                         ) : (
-                            <div className="space-y-4">
+                            <motion.div 
+                                className="space-y-4"
+                                variants={containerVariants}
+                                initial="hidden"
+                                animate="visible"
+                            >
                                 {groupedIncomes.map(([dateHeader, incomesInGroup]) => (
-                                    <div key={dateHeader}>
+                                    <motion.div 
+                                        key={dateHeader}
+                                        variants={itemVariants}
+                                    >
                                         <div className="sticky top-0 bg-brand-bg/90 backdrop-blur-sm py-2 z-10 -mx-8 px-8">
                                             <h2 className="text-sm font-semibold text-brand-text-primary border-b border-brand-border pb-2">{dateHeader}</h2>
                                         </div>
-                                        <div className="space-y-3 pt-2">
-                                            {incomesInGroup.map(income => (
-                                                <IncomeListItem
-                                                    key={income.id}
-                                                    income={income}
-                                                    onEdit={handleEdit}
-                                                    onDelete={handleDeleteRequest}
-                                                    isAnimatingIn={animatingInId === income.id}
-                                                    isAnimatingOut={animatingOutId === income.id}
-                                                    isHighlighted={highlightedId === income.id}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
+                                        <motion.div 
+                                            className="space-y-3 pt-2"
+                                            variants={containerVariants}
+                                        >
+                                            <AnimatePresence mode="popLayout">
+                                                {incomesInGroup.map(income => (
+                                                    <IncomeListItem
+                                                        key={income.id}
+                                                        income={income}
+                                                        onEdit={handleEdit}
+                                                        onDelete={handleDeleteRequest}
+                                                        isAnimatingIn={animatingInId === income.id}
+                                                        isAnimatingOut={animatingOutId === income.id}
+                                                        isHighlighted={highlightedId === income.id}
+                                                    />
+                                                ))}
+                                            </AnimatePresence>
+                                        </motion.div>
+                                    </motion.div>
                                 ))}
-                            </div>
+                            </motion.div>
                         )}
                     </>
                   )}
                 </div>
-            </div>
+            </motion.div>
             <IncomeModal 
                 isOpen={isFlowOpen} 
                 onClose={handleCloseFlow} 

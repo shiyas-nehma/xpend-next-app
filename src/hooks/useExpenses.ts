@@ -4,21 +4,29 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Expense, Category } from '@/types';
 import { ExpenseService } from '@/lib/firebase/expenseService';
 import { useToast } from './useToast';
+import { useAuth } from '@/context/AuthContext';
 
-// TODO: Replace demo user with real authenticated user ID from auth context
-const DEMO_USER_ID = 'demo-user-123';
+const FALLBACK_DEMO_USER_ID = 'demo-user-unauth';
 
 export const useExpenses = (categories: Category[]) => {
+  const { user, loading: authLoading } = useAuth();
+  const userId = user?.uid || FALLBACK_DEMO_USER_ID;
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { addToast } = useToast();
 
   const loadExpenses = useCallback(async () => {
+    if (authLoading) return; // wait for auth resolution
+    if (!user) {
+      setExpenses([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
-      const data = await ExpenseService.getExpenses(DEMO_USER_ID, categories);
+      const data = await ExpenseService.getExpenses(userId, categories);
       // De-duplicate by docId to avoid duplicate React keys in case of race conditions
       const seen = new Set<string>();
       const unique = data.filter(e => {
@@ -36,11 +44,12 @@ export const useExpenses = (categories: Category[]) => {
     } finally {
       setLoading(false);
     }
-  }, [categories, addToast]);
+  }, [categories, addToast, authLoading, user, userId]);
 
   const addExpense = useCallback(async (expenseData: Omit<Expense, 'id' | 'docId'>) => {
+    if (!user) throw new Error('Not authenticated');
     try {
-      const created = await ExpenseService.addExpense(expenseData, DEMO_USER_ID);
+      const created = await ExpenseService.addExpense(expenseData, userId);
       setExpenses(prev => {
         // Remove any existing with same docId
         return [created, ...prev.filter(p => p.docId !== created.docId)];
@@ -52,7 +61,7 @@ export const useExpenses = (categories: Category[]) => {
       addToast(message, 'error');
       throw e;
     }
-  }, [addToast]);
+  }, [addToast, user, userId]);
 
   const updateExpense = useCallback(async (expense: Expense) => {
     try {
@@ -82,11 +91,12 @@ export const useExpenses = (categories: Category[]) => {
 
   useEffect(() => {
     loadExpenses();
-  }, [loadExpenses]);
+  }, [loadExpenses, userId]);
 
   // Real-time listener
   useEffect(() => {
-    const unsubscribe = ExpenseService.onExpensesChange(DEMO_USER_ID, categories, (updated) => {
+    if (authLoading || !user) return; // skip listener when logged out
+    const unsubscribe = ExpenseService.onExpensesChange(userId, categories, (updated) => {
       // Same de-duplication on snapshot
       const seen = new Set<string>();
       const unique = updated.filter(e => {
@@ -100,7 +110,7 @@ export const useExpenses = (categories: Category[]) => {
       setError(null);
     });
     return () => unsubscribe();
-  }, [categories]);
+  }, [categories, userId, user, authLoading]);
 
   return {
     expenses,

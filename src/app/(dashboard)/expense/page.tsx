@@ -12,6 +12,58 @@ import EmptyState from '@/components/common/EmptyState';
 import EmptyStateIcon from '@/components/icons/EmptyStateIcon';
 import { useToast } from '@/hooks/useToast';
 import { useData } from '@/hooks/useData';
+import { AnimatePresence, motion } from 'framer-motion';
+
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { 
+    opacity: 0, 
+    y: 20,
+    scale: 0.95
+  },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring" as const,
+      stiffness: 300,
+      damping: 30
+    }
+  },
+  exit: {
+    opacity: 0,
+    y: -20,
+    scale: 0.95,
+    transition: {
+      duration: 0.2
+    }
+  }
+};
+
+const headerVariants = {
+  hidden: { opacity: 0, y: -20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 400,
+      damping: 30
+    }
+  }
+};
 
 const paymentMethodIcons: Record<Expense['paymentMethod'], React.ReactNode> = {
   Card: <CreditCardIcon className="w-4 h-4" />,
@@ -325,7 +377,7 @@ const ExpenseModal: React.FC<{
                                 </div>
                             </div>
 
-                            <div className="py-6 space-y-4">
+                            <div className="py-6 space-y-4 px-2">
                                 <div>
                                     <label className="block text-brand-text-secondary text-sm font-medium mb-1" htmlFor="description">For</label>
                                     <input type="text" id="description" value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g., Lunch with client" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue" />
@@ -468,25 +520,66 @@ const ExpenseCard: React.FC<{
     isHighlighted: boolean;
 }> = ({ expense, onEdit, onDelete, isAnimatingIn, isAnimatingOut, isHighlighted }) => {
     return (
-        <div className={`group relative p-4 bg-brand-surface rounded-2xl border border-brand-border flex flex-col transition-all duration-300 hover:border-brand-blue hover:shadow-lg hover:shadow-brand-blue/10 hover:-translate-y-1
-            ${isAnimatingOut ? 'animate-fade-out-scale' : ''}
-            ${isAnimatingIn ? 'animate-fade-in-scale' : ''}
-            ${isHighlighted ? 'animate-highlight' : ''}`}>
+        <motion.div 
+            className={`group relative p-4 bg-brand-surface rounded-2xl border border-brand-border flex flex-col cursor-pointer
+                ${isHighlighted ? 'animate-highlight' : ''}`}
+            variants={itemVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            whileHover={{
+              y: -8,
+              scale: 1.02,
+              borderColor: "rgb(239 68 68)",
+              boxShadow: "0 25px 50px -12px rgba(239, 68, 68, 0.25)",
+              transition: {
+                type: "spring",
+                stiffness: 400,
+                damping: 25
+              }
+            }}
+            whileTap={{
+              scale: 0.98,
+              transition: { duration: 0.1 }
+            }}
+            layout
+            layoutId={`expense-${expense.id}`}
+        >
             
             <div className="flex-grow">
                 <div className="flex justify-between items-start">
                     <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-11 h-11 rounded-lg flex items-center justify-center text-2xl shrink-0 relative overflow-hidden bg-red-500/10">
+                        <motion.div 
+                            className="w-11 h-11 rounded-lg flex items-center justify-center text-2xl shrink-0 relative overflow-hidden bg-red-500/10"
+                            whileHover={{ 
+                                scale: 1.1,
+                                rotate: 5,
+                                backgroundColor: "rgba(239, 68, 68, 0.15)"
+                            }}
+                            transition={{ type: "spring", stiffness: 400 }}
+                        >
                             <div className="absolute inset-0 rounded-lg bg-[radial-gradient(ellipse_at_center,_rgba(239,68,68,0.2)_0%,_transparent_70%)]"></div>
                             <span className="relative z-10">{expense.category.icon}</span>
-                        </div>
-                        <div className="min-w-0">
+                        </motion.div>
+                        <motion.div 
+                            className="min-w-0"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.1 }}
+                        >
                             <p className="font-semibold text-base text-brand-text-primary leading-tight truncate" title={expense.description}>{expense.description}</p>
                             <p className="text-sm text-brand-text-secondary">{expense.category.name}</p>
-                        </div>
+                        </motion.div>
                     </div>
                      <div className="text-right shrink-0 pl-2">
-                         <p className="text-xl font-bold text-red-400">-${expense.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                         <motion.p 
+                            className="text-xl font-bold text-red-400"
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.2, duration: 0.5, type: "spring" }}
+                         >
+                            -${expense.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                         </motion.p>
                     </div>
                 </div>
             </div>
@@ -500,11 +593,32 @@ const ExpenseCard: React.FC<{
                  <p className="font-medium">{formatDate(expense.date)}</p>
             </div>
 
-            <div className="absolute top-3 right-3 flex items-center rounded-md bg-brand-surface-2/80 backdrop-blur-sm border border-brand-border overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                <button onClick={() => onEdit(expense)} className="p-1.5 text-brand-text-secondary hover:text-brand-text-primary hover:bg-brand-border transition-colors" title={`Edit ${expense.description}`}><PencilIcon className="w-4 h-4" /></button>
-                <button onClick={() => onDelete(expense)} className="p-1.5 text-brand-text-secondary hover:text-red-400 hover:bg-brand-border transition-colors border-l border-brand-border" title={`Delete ${expense.description}`}><TrashIcon className="w-4 h-4" /></button>
-            </div>
-        </div>
+            <motion.div 
+                className="absolute top-3 right-3 flex items-center rounded-md bg-brand-surface-2/80 backdrop-blur-sm border border-brand-border overflow-hidden opacity-100 transition-opacity duration-300 z-10"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ scale: 1.05 }}
+            >
+                <motion.button 
+                    onClick={() => onEdit(expense)} 
+                    className="p-1.5 text-brand-text-secondary hover:text-brand-text-primary hover:bg-brand-border transition-colors" 
+                    title={`Edit ${expense.description}`}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                >
+                    <PencilIcon className="w-4 h-4" />
+                </motion.button>
+                <motion.button 
+                    onClick={() => onDelete(expense)} 
+                    className="p-1.5 text-brand-text-secondary hover:text-red-400 hover:bg-brand-border transition-colors border-l border-brand-border" 
+                    title={`Delete ${expense.description}`}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                >
+                    <TrashIcon className="w-4 h-4" />
+                </motion.button>
+            </motion.div>
+        </motion.div>
     );
 };
 
@@ -517,21 +631,53 @@ const ExpenseListItem: React.FC<{
     isHighlighted: boolean;
 }> = ({ expense, onEdit, onDelete, isAnimatingIn, isAnimatingOut, isHighlighted }) => {
     return (
-        <div className={`group relative px-4 py-3 bg-brand-surface rounded-lg border border-brand-border flex items-center gap-4 transition-all duration-300 hover:border-brand-blue hover:bg-brand-surface-2/50
-            ${isAnimatingOut ? 'animate-fade-out-scale' : ''}
-            ${isAnimatingIn ? 'animate-fade-in-scale' : ''}
-            ${isHighlighted ? 'animate-highlight' : ''}`}>
+        <motion.div 
+            className={`group relative px-4 py-3 bg-brand-surface rounded-lg border border-brand-border flex items-center gap-4 cursor-pointer
+                ${isHighlighted ? 'animate-highlight' : ''}`}
+            variants={itemVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            whileHover={{
+              scale: 1.01,
+              borderColor: "rgb(239 68 68)",
+              backgroundColor: "rgba(31, 41, 55, 0.5)",
+              transition: {
+                type: "spring",
+                stiffness: 400,
+                damping: 25
+              }
+            }}
+            whileTap={{
+              scale: 0.98,
+              transition: { duration: 0.1 }
+            }}
+            layout
+            layoutId={`expense-list-${expense.id}`}
+        >
             
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0 relative overflow-hidden bg-red-500/10">
+            <motion.div 
+                className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0 relative overflow-hidden bg-red-500/10"
+                whileHover={{ 
+                    scale: 1.1,
+                    rotate: 5,
+                    backgroundColor: "rgba(239, 68, 68, 0.15)"
+                }}
+                transition={{ type: "spring", stiffness: 400 }}
+            >
                 <div className="absolute inset-0 rounded-lg bg-[radial-gradient(ellipse_at_center,_rgba(239,68,68,0.2)_0%,_transparent_70%)]"></div>
                 <span className="relative z-10">{expense.category.icon}</span>
-            </div>
+            </motion.div>
             
             <div className="flex-1 min-w-0 md:grid md:grid-cols-2 md:gap-4 md:items-center">
-                <div>
+                <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 }}
+                >
                     <p className="font-semibold text-sm text-brand-text-primary truncate" title={expense.description}>{expense.description}</p>
                     <p className="text-xs text-brand-text-secondary">{expense.category.name}</p>
-                </div>
+                </motion.div>
                  <div className="hidden md:flex items-center gap-2 text-sm text-brand-text-secondary">
                     {paymentMethodIcons[expense.paymentMethod]}
                     <span>{expense.paymentMethod}</span>
@@ -544,14 +690,42 @@ const ExpenseListItem: React.FC<{
             </div>
             
             <div className="text-right w-32 shrink-0">
-                <p className="text-base font-bold text-red-400">-${expense.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <motion.p 
+                    className="text-base font-bold text-red-400"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2, duration: 0.5, type: "spring" }}
+                >
+                    -${expense.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </motion.p>
             </div>
             
-            <div className="absolute top-1/2 -translate-y-1/2 right-4 flex items-center rounded-md bg-brand-surface-2/80 backdrop-blur-sm border border-brand-border overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                <button onClick={() => onEdit(expense)} className="p-1.5 text-brand-text-secondary hover:text-brand-text-primary hover:bg-brand-border transition-colors" title={`Edit ${expense.description}`}><PencilIcon className="w-4 h-4" /></button>
-                <button onClick={() => onDelete(expense)} className="p-1.5 text-brand-text-secondary hover:text-red-400 hover:bg-brand-border transition-colors border-l border-brand-border" title={`Delete ${expense.description}`}><TrashIcon className="w-4 h-4" /></button>
-            </div>
-        </div>
+            <motion.div 
+                className="absolute top-1/2 -translate-y-1/2 right-4 flex items-center rounded-md bg-brand-surface-2/80 backdrop-blur-sm border border-brand-border overflow-hidden opacity-100 transition-opacity duration-300 z-10"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ scale: 1.05 }}
+            >
+                <motion.button 
+                    onClick={() => onEdit(expense)} 
+                    className="p-1.5 text-brand-text-secondary hover:text-brand-text-primary hover:bg-brand-border transition-colors" 
+                    title={`Edit ${expense.description}`}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                >
+                    <PencilIcon className="w-4 h-4" />
+                </motion.button>
+                <motion.button 
+                    onClick={() => onDelete(expense)} 
+                    className="p-1.5 text-brand-text-secondary hover:text-red-400 hover:bg-brand-border transition-colors border-l border-brand-border" 
+                    title={`Delete ${expense.description}`}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                >
+                    <TrashIcon className="w-4 h-4" />
+                </motion.button>
+            </motion.div>
+        </motion.div>
     );
 };
 
@@ -664,25 +838,47 @@ const ExpensePage: React.FC = () => {
 
     return (
         <>
-            <div className="p-8 flex flex-col h-full">
-                <div className="flex flex-wrap justify-between items-center gap-4 mb-6 flex-shrink-0">
+            <motion.div 
+                className="p-8 flex flex-col h-full"
+                initial="hidden"
+                animate="visible"
+                variants={containerVariants}
+            >
+                <motion.div 
+                    className="flex flex-wrap justify-between items-center gap-4 mb-6 flex-shrink-0"
+                    variants={headerVariants}
+                >
                     <h1 className="text-2xl font-bold text-brand-text-primary">Expense</h1>
-                     <div className="flex items-center gap-2 md:gap-4">
+                     <motion.div 
+                        className="flex items-center gap-2 md:gap-4"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 }}
+                     >
                         {expenses.length > 0 && (
                             <>
-                                <div className="relative">
+                                <motion.div 
+                                    className="relative"
+                                    whileHover={{ scale: 1.02 }}
+                                    transition={{ duration: 0.2 }}
+                                >
                                     <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-secondary w-5 h-5" />
-                                    <input
+                                    <motion.input
                                         type="text"
                                         placeholder="Search expenses..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="bg-brand-surface border border-brand-border rounded-lg py-2 pl-10 pr-4 w-40 sm:w-52 md:w-64 focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                                        whileFocus={{
+                                          scale: 1.02,
+                                          borderColor: "rgb(239 68 68)",
+                                          transition: { duration: 0.2 }
+                                        }}
                                     />
-                                </div>
+                                </motion.div>
                                 <div className="hidden sm:flex space-x-1 bg-brand-surface p-1 rounded-lg border border-brand-border">
                                     {filters.map((filter) => (
-                                        <button
+                                        <motion.button
                                             key={filter}
                                             onClick={() => setActiveFilter(filter)}
                                             className={`px-3 py-1 text-sm rounded-md transition-colors ${
@@ -690,119 +886,231 @@ const ExpensePage: React.FC = () => {
                                                     ? 'bg-brand-surface-2 text-white shadow-sm'
                                                     : 'text-brand-text-secondary hover:bg-brand-surface-2/50'
                                             }`}
+                                            whileHover={{ 
+                                                scale: 1.05,
+                                                transition: { duration: 0.2 }
+                                            }}
+                                            whileTap={{ 
+                                                scale: 0.95,
+                                                transition: { duration: 0.1 }
+                                            }}
+                                            animate={{
+                                                backgroundColor: activeFilter === filter ? "rgba(239, 68, 68, 0.8)" : "transparent"
+                                            }}
+                                            transition={{
+                                                type: "spring",
+                                                stiffness: 300,
+                                                damping: 30
+                                            }}
                                         >
                                             {filter}
-                                        </button>
+                                        </motion.button>
                                     ))}
                                 </div>
                                 <div className="hidden sm:flex items-center space-x-1 bg-brand-surface p-1 rounded-lg border border-brand-border">
-                                    <button onClick={() => setView('grid')} className={`p-1.5 rounded-md transition-colors ${view === 'grid' ? 'bg-brand-surface-2 text-white' : 'text-brand-text-secondary hover:text-white'}`} title="Grid View" aria-pressed={view === 'grid'}>
+                                    <motion.button 
+                                        onClick={() => setView('grid')} 
+                                        className={`p-1.5 rounded-md transition-colors ${view === 'grid' ? 'bg-brand-surface-2 text-white' : 'text-brand-text-secondary hover:text-white'}`} 
+                                        title="Grid View" 
+                                        aria-pressed={view === 'grid'}
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                    >
                                         <GridIcon className="w-5 h-5" />
-                                    </button>
-                                    <button onClick={() => setView('list')} className={`p-1.5 rounded-md transition-colors ${view === 'list' ? 'bg-brand-surface-2 text-white' : 'text-brand-text-secondary hover:text-white'}`} title="List View" aria-pressed={view === 'list'}>
+                                    </motion.button>
+                                    <motion.button 
+                                        onClick={() => setView('list')} 
+                                        className={`p-1.5 rounded-md transition-colors ${view === 'list' ? 'bg-brand-surface-2 text-white' : 'text-brand-text-secondary hover:text-white'}`} 
+                                        title="List View" 
+                                        aria-pressed={view === 'list'}
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                    >
                                         <ListIcon className="w-5 h-5" />
-                                    </button>
+                                    </motion.button>
                                 </div>
                             </>
                         )}
-                        <button 
+                        <motion.button 
                             onClick={() => setIsReceiptModalOpen(true)}
-                            className="flex items-center space-x-2 bg-brand-surface-2 border border-brand-border text-sm font-bold py-2 px-3 rounded-lg hover:bg-brand-border transition-colors">
-                            <DocumentTextIcon className="w-5 h-5" />
+                            className="flex items-center space-x-2 bg-brand-surface-2 border border-brand-border text-sm font-bold py-2 px-3 rounded-lg hover:bg-brand-border transition-colors"
+                            whileHover={{
+                                scale: 1.05,
+                                boxShadow: "0 10px 25px rgba(0, 0, 0, 0.2)"
+                            }}
+                            whileTap={{
+                                scale: 0.95
+                            }}
+                            transition={{
+                                type: "spring",
+                                stiffness: 400,
+                                damping: 25
+                            }}
+                        >
+                            <motion.div
+                                whileHover={{ rotate: 15 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <DocumentTextIcon className="w-5 h-5" />
+                            </motion.div>
                             <span className="hidden lg:inline">Add from Receipt</span>
-                        </button>
-                        <button 
+                        </motion.button>
+                        <motion.button 
                             onClick={() => setIsAddingNew(true)}
-                            className="flex items-center space-x-2 bg-white text-black font-bold py-2 px-3 rounded-lg hover:bg-gray-200 transition duration-300
+                            className="flex items-center space-x-2 bg-white text-black font-bold py-2 px-3 rounded-lg transition duration-300
                                       shadow-[0_0_20px_rgba(255,255,255,0.1)]
-                                      bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]">
-                            <PlusIcon className="w-5 h-5" />
+                                      bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]"
+                            whileHover={{
+                                scale: 1.05,
+                                boxShadow: "0 10px 25px rgba(255, 255, 255, 0.2)",
+                                backgroundColor: "rgba(240, 240, 240, 1)"
+                            }}
+                            whileTap={{
+                                scale: 0.95
+                            }}
+                            transition={{
+                                type: "spring",
+                                stiffness: 400,
+                                damping: 25
+                            }}
+                        >
+                            <motion.div
+                                whileHover={{ rotate: 90 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <PlusIcon className="w-5 h-5" />
+                            </motion.div>
                             <span className="hidden lg:inline">Add New</span>
-                        </button>
-                    </div>
-                </div>
+                        </motion.button>
+                    </motion.div>
+                </motion.div>
 
                 <div className="flex-grow">
                   {expenses.length === 0 ? (
-                      <EmptyState
-                        icon={<EmptyStateIcon />}
-                        title="No expenses recorded"
-                        message="Get started by adding your first transaction. It will appear here."
-                        primaryAction={
-                          <button 
-                              onClick={() => setIsAddingNew(true)}
-                              className="flex items-center space-x-2 bg-white text-black font-bold py-2 px-4 rounded-lg hover:bg-gray-200 transition duration-300
-                                            shadow-[0_0_20px_rgba(255,255,255,0.1)]
-                                            bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]">
-                              <PlusIcon className="w-5 h-5" />
-                              <span>Add First Expense</span>
-                          </button>
-                        }
-                      />
-                  ) : filteredExpenses.length === 0 ? (
-                        <EmptyState
+                      <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.5 }}
+                      >
+                          <EmptyState
                             icon={<EmptyStateIcon />}
-                            title={searchQuery ? 'No Results Found' : `No ${activeFilter} expenses`}
-                            message={
-                                searchQuery 
-                                ? <>Your search for "{searchQuery}" did not return any results.</>
-                                : <>There are no expenses that match the selected filter.</>
-                            }
+                            title="No expenses recorded"
+                            message="Get started by adding your first transaction. It will appear here."
                             primaryAction={
-                            <button 
-                                onClick={() => {
-                                    if (searchQuery) setSearchQuery('');
-                                    else setActiveFilter('All');
-                                }}
-                                className="flex items-center space-x-2 bg-brand-surface-2 border border-brand-border font-bold py-2 px-4 rounded-lg hover:bg-brand-border transition duration-300">
-                                <span>{searchQuery ? 'Clear Search' : 'Show All Expenses'}</span>
-                            </button>
+                              <motion.button 
+                                  onClick={() => setIsAddingNew(true)}
+                                  className="flex items-center space-x-2 bg-white text-black font-bold py-2 px-4 rounded-lg hover:bg-gray-200 transition duration-300
+                                                shadow-[0_0_20px_rgba(255,255,255,0.1)]
+                                                bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]"
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  animate={{ 
+                                    boxShadow: [
+                                      "0 0 20px rgba(255,255,255,0.1)",
+                                      "0 0 30px rgba(255,255,255,0.3)",
+                                      "0 0 20px rgba(255,255,255,0.1)"
+                                    ]
+                                  }}
+                                  transition={{ 
+                                    boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                                  }}
+                              >
+                                  <PlusIcon className="w-5 h-5" />
+                                  <span>Add First Expense</span>
+                              </motion.button>
                             }
-                        />
+                          />
+                      </motion.div>
+                  ) : filteredExpenses.length === 0 ? (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5 }}
+                        >
+                            <EmptyState
+                                icon={<EmptyStateIcon />}
+                                title={searchQuery ? 'No Results Found' : `No ${activeFilter} expenses`}
+                                message={
+                                    searchQuery 
+                                    ? <>Your search for "{searchQuery}" did not return any results.</>
+                                    : <>There are no expenses that match the selected filter.</>
+                                }
+                                primaryAction={
+                                <button 
+                                    onClick={() => {
+                                        if (searchQuery) setSearchQuery('');
+                                        else setActiveFilter('All');
+                                    }}
+                                    className="flex items-center space-x-2 bg-brand-surface-2 border border-brand-border font-bold py-2 px-4 rounded-lg hover:bg-brand-border transition duration-300">
+                                    <span>{searchQuery ? 'Clear Search' : 'Show All Expenses'}</span>
+                                </button>
+                                }
+                            />
+                        </motion.div>
                   ) : (
                     <>
                         {view === 'grid' ? (
-                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                {filteredExpenses.map(expense => (
-                                    <ExpenseCard
-                                        key={expense.docId || expense.id}
-                                        expense={expense}
-                                        onEdit={handleEdit}
-                                        onDelete={handleDeleteRequest}
-                                        isAnimatingIn={animatingInId === expense.id}
-                                        isAnimatingOut={animatingOutId === expense.id}
-                                        isHighlighted={highlightedId === expense.id}
-                                    />
-                                ))}
-                            </div>
+                           <motion.div 
+                               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                               variants={containerVariants}
+                               initial="hidden"
+                               animate="visible"
+                           >
+                               <AnimatePresence mode="popLayout">
+                                    {filteredExpenses.map(expense => (
+                                        <ExpenseCard
+                                            key={expense.docId || `expense-${expense.id}`}
+                                            expense={expense}
+                                            onEdit={handleEdit}
+                                            onDelete={handleDeleteRequest}
+                                            isAnimatingIn={animatingInId === expense.id}
+                                            isAnimatingOut={animatingOutId === expense.id}
+                                            isHighlighted={highlightedId === expense.id}
+                                        />
+                                    ))}
+                                </AnimatePresence>
+                            </motion.div>
                         ) : (
-                            <div className="space-y-4">
+                            <motion.div 
+                                className="space-y-4"
+                                variants={containerVariants}
+                                initial="hidden"
+                                animate="visible"
+                            >
                                 {groupedExpenses.map(([dateHeader, expensesInGroup]) => (
-                                    <div key={dateHeader}>
+                                    <motion.div 
+                                        key={dateHeader}
+                                        variants={itemVariants}
+                                    >
                                         <div className="sticky top-0 bg-brand-bg/90 backdrop-blur-sm py-2 z-10 -mx-8 px-8">
                                              <h2 className="text-sm font-semibold text-brand-text-primary border-b border-brand-border pb-2">{dateHeader}</h2>
                                         </div>
-                                        <div className="space-y-3 pt-2">
-                                            {expensesInGroup.map(expense => (
-                                                <ExpenseListItem
-                                                    key={expense.docId || expense.id}
-                                                    expense={expense}
-                                                    onEdit={handleEdit}
-                                                    onDelete={handleDeleteRequest}
-                                                    isAnimatingIn={animatingInId === expense.id}
-                                                    isAnimatingOut={animatingOutId === expense.id}
-                                                    isHighlighted={highlightedId === expense.id}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
+                                        <motion.div 
+                                            className="space-y-3 pt-2"
+                                            variants={containerVariants}
+                                        >
+                                            <AnimatePresence mode="popLayout">
+                                                {expensesInGroup.map(expense => (
+                                                    <ExpenseListItem
+                                                        key={expense.docId || `expense-list-${expense.id}`}
+                                                        expense={expense}
+                                                        onEdit={handleEdit}
+                                                        onDelete={handleDeleteRequest}
+                                                        isAnimatingIn={animatingInId === expense.id}
+                                                        isAnimatingOut={animatingOutId === expense.id}
+                                                        isHighlighted={highlightedId === expense.id}
+                                                    />
+                                                ))}
+                                            </AnimatePresence>
+                                        </motion.div>
+                                    </motion.div>
                                 ))}
-                            </div>
+                            </motion.div>
                         )}
                     </>
                   )}
                 </div>
-            </div>
+            </motion.div>
             <ExpenseModal 
                 isOpen={isFlowOpen} 
                 onClose={handleCloseFlow} 

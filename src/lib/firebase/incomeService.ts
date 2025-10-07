@@ -134,6 +134,7 @@ export class IncomeService {
     try {
       const categoryFirestoreId = incomeData.category.docId || CategoryService.getFirestoreId(incomeData.category.id);
       if (!categoryFirestoreId) {
+        console.error('addIncome: missing categoryFirestoreId', { providedCategory: incomeData.category });
         throw new Error('Invalid category');
       }
       
@@ -163,10 +164,17 @@ export class IncomeService {
         }
       }
       
+      if (!userId) {
+        console.error('addIncome: userId missing');
+        throw new Error('Not authenticated');
+      }
       const docRef = await addDoc(collection(db, COLLECTION_NAME), firebaseIncome);
       return this.buildIncome(docRef.id, { ...firebaseIncome, id: docRef.id } as FirebaseIncome);
     } catch (e) {
-      console.error('Error adding income', e);
+      console.error('Error adding income (detailed)', e);
+      if (e instanceof Error) {
+        throw e.message === 'Invalid category' || e.message === 'Not authenticated' ? e : new Error('Failed to add income');
+      }
       throw new Error('Failed to add income');
     }
   }

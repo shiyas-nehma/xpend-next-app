@@ -4,21 +4,29 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Income, Category } from '@/types';
 import { IncomeService } from '@/lib/firebase/incomeService';
 import { useToast } from './useToast';
+import { useAuth } from '@/context/AuthContext';
 
-// TODO: Replace demo user with real authenticated user ID from auth context
-const DEMO_USER_ID = 'demo-user-123';
+const FALLBACK_DEMO_USER_ID = 'demo-user-unauth';
 
 export const useIncomes = (categories: Category[]) => {
+  const { user, loading: authLoading } = useAuth();
+  const userId = user?.uid || FALLBACK_DEMO_USER_ID;
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { addToast } = useToast();
 
   const loadIncomes = useCallback(async () => {
+    if (authLoading) return;
+    if (!user) {
+      setIncomes([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
-      const data = await IncomeService.getIncomes(DEMO_USER_ID, categories);
+      const data = await IncomeService.getIncomes(userId, categories);
       // De-duplicate by docId to avoid duplicate React keys in case of race conditions
       const seen = new Set<string>();
       const unique = data.filter(i => {
@@ -36,11 +44,12 @@ export const useIncomes = (categories: Category[]) => {
     } finally {
       setLoading(false);
     }
-  }, [categories, addToast]);
+  }, [categories, addToast, authLoading, user, userId]);
 
   const addIncome = useCallback(async (incomeData: Omit<Income, 'id' | 'docId'>) => {
+    if (!user) throw new Error('Not authenticated');
     try {
-      const created = await IncomeService.addIncome(incomeData, DEMO_USER_ID);
+      const created = await IncomeService.addIncome(incomeData, userId);
       setIncomes(prev => {
         // Remove any existing with same docId
         return [created, ...prev.filter(p => p.docId !== created.docId)];
@@ -52,7 +61,7 @@ export const useIncomes = (categories: Category[]) => {
       addToast(message, 'error');
       throw e;
     }
-  }, [addToast]);
+  }, [addToast, user, userId, categories]);
 
   const updateIncome = useCallback(async (income: Income) => {
     try {
@@ -82,11 +91,12 @@ export const useIncomes = (categories: Category[]) => {
 
   useEffect(() => {
     loadIncomes();
-  }, [loadIncomes]);
+  }, [loadIncomes, userId]);
 
   // Real-time listener
   useEffect(() => {
-    const unsubscribe = IncomeService.onIncomesChange(DEMO_USER_ID, categories, (updated) => {
+    if (authLoading || !user) return;
+    const unsubscribe = IncomeService.onIncomesChange(userId, categories, (updated) => {
       // Same de-duplication on snapshot
       const seen = new Set<string>();
       const unique = updated.filter(i => {
@@ -100,7 +110,7 @@ export const useIncomes = (categories: Category[]) => {
       setError(null);
     });
     return () => unsubscribe();
-  }, [categories]);
+  }, [categories, userId, user, authLoading]);
 
   return {
     incomes,

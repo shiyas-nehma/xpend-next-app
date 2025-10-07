@@ -134,6 +134,7 @@ export class ExpenseService {
     try {
       const categoryFirestoreId = expenseData.category.docId || CategoryService.getFirestoreId(expenseData.category.id);
       if (!categoryFirestoreId) {
+        console.error('addExpense: missing categoryFirestoreId', { providedCategory: expenseData.category });
         throw new Error('Invalid category');
       }
       // Build base document data
@@ -161,10 +162,18 @@ export class ExpenseService {
           firebaseExpense.recurrence = { frequency, end: { type: 'OnDate', value: end.value } };
         }
       }
+      if (!userId) {
+        console.error('addExpense: userId missing');
+        throw new Error('Not authenticated');
+      }
+
       const docRef = await addDoc(collection(db, COLLECTION_NAME), firebaseExpense);
       return this.buildExpense(docRef.id, { ...firebaseExpense, id: docRef.id } as FirebaseExpense);
     } catch (e) {
-      console.error('Error adding expense', e);
+      console.error('Error adding expense (detailed)', e);
+      if (e instanceof Error) {
+        throw e.message === 'Invalid category' || e.message === 'Not authenticated' ? e : new Error('Failed to add expense');
+      }
       throw new Error('Failed to add expense');
     }
   }

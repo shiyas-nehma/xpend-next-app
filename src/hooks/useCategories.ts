@@ -4,12 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { CategoryService } from '@/lib/firebase/categoryService';
 import type { Category } from '@/types';
 import { useToast } from './useToast';
+import { useAuth } from '@/context/AuthContext';
 
-// For demo purposes, we'll use a mock user ID
-// In a real app, this would come from authentication
-const DEMO_USER_ID = 'demo-user-123';
+// NOTE: userId now comes from AuthContext; fallback only used for transitional unauthenticated state
+const FALLBACK_DEMO_USER_ID = 'demo-user-unauth';
 
 export const useCategories = () => {
+  const { user, loading: authLoading } = useAuth();
+  const userId = user?.uid || FALLBACK_DEMO_USER_ID; // ensure a stable string for dependency changes
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,10 +24,16 @@ export const useCategories = () => {
 
   // Load categories from Firebase
   const loadCategories = useCallback(async () => {
+    if (authLoading) return; // wait until auth resolved
+    if (!user) { // user not logged in -> clear categories
+      setCategories([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
-      const fetchedCategories = await CategoryService.getCategories(DEMO_USER_ID);
+      const fetchedCategories = await CategoryService.getCategories(userId);
       setCategories(fetchedCategories);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load categories';
@@ -35,12 +43,13 @@ export const useCategories = () => {
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, authLoading, user, userId]);
 
   // Add a new category
   const addCategory = useCallback(async (categoryData: Omit<Category, 'id'>) => {
+    if (!user) throw new Error('Not authenticated');
     try {
-      const newCategory = await CategoryService.addCategory(categoryData, DEMO_USER_ID);
+      const newCategory = await CategoryService.addCategory(categoryData, userId);
       setCategories(prev => [newCategory, ...prev]);
       addToast('Category added successfully', 'success');
       return newCategory;
@@ -50,7 +59,7 @@ export const useCategories = () => {
       console.error('Error adding category:', err);
       throw err;
     }
-  }, [addToast]);
+  }, [addToast, user, userId]);
 
   // Update an existing category
   const updateCategory = useCallback(async (updatedCategory: Category) => {
@@ -146,28 +155,31 @@ export const useCategories = () => {
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
 
-    const setupRealtimeListener = () => {
-      try {
-        unsubscribe = CategoryService.onCategoriesChange(DEMO_USER_ID, (updatedCategories) => {
-          setCategories(updatedCategories);
-          setLoading(false);
-          setError(null);
-        });
-      } catch (err) {
-        console.error('Error setting up real-time listener:', err);
-        // Fallback to one-time load if real-time fails
-        loadCategories();
+    // When auth state changes, reset ID mappings to ensure isolation per user
+    if (!authLoading) {
+      CategoryService.clearIdMappings();
+      if (!user) {
+        setCategories([]);
       }
-    };
+    }
 
-    setupRealtimeListener();
+    if (authLoading || !user) return; // wait for auth or skip if not logged in
+
+    try {
+      unsubscribe = CategoryService.onCategoriesChange(userId, (updatedCategories) => {
+        setCategories(updatedCategories);
+        setLoading(false);
+        setError(null);
+      });
+    } catch (err) {
+      console.error('Error setting up real-time listener:', err);
+      loadCategories();
+    }
 
     return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
+      if (unsubscribe) unsubscribe();
     };
-  }, [loadCategories]);
+  }, [userId, user, authLoading, loadCategories]);
 
   return {
     categories,
