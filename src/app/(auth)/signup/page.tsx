@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { EyeIcon, EyeOffIcon, GoogleIcon, FacebookIcon } from '@/components/icons/NavIcons';
+import { signUp, signInWithGoogle, getAuthErrorMessage } from '@/lib/firebase/auth';
+import { useToast } from '@/hooks/useToast';
 
 const Logo: React.FC = () => (
     <div className="flex items-center space-x-2">
@@ -13,8 +15,9 @@ const Logo: React.FC = () => (
     </div>
 );
 
-const SocialButton: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
+const SocialButton: React.FC<{ icon: React.ReactNode; label: string; onClick?: () => void }> = ({ icon, label, onClick }) => (
     <button
+        onClick={onClick}
         className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-brand-surface-2 border border-brand-border rounded-lg text-brand-text-primary text-sm font-medium
                    hover:bg-brand-border transition-colors duration-200"
     >
@@ -27,12 +30,89 @@ const SocialButton: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [formData, setFormData] = useState({ 
+    fullName: '', 
+    email: '', 
+    password: '', 
+    confirmPassword: '' 
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const router = useRouter();
+  const { showToast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (error) setError(''); // Clear error when user starts typing
+  };
+
+  const validateForm = () => {
+    if (!formData.fullName.trim()) {
+      setError('Full name is required');
+      return false;
+    }
+    if (!formData.email.trim()) {
+      setError('Email is required');
+      return false;
+    }
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return false;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Handle signup logic here, then redirect to onboarding
-    router.push('/onboarding');
+    setError('');
+    
+    console.log('Form submitted with data:', formData); // Debug log
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      console.log('Calling signUp function...'); // Debug log
+      await signUp({
+        email: formData.email,
+        password: formData.password,
+        fullName: formData.fullName
+      });
+      showToast('Account created successfully!', 'success');
+      router.push('/onboarding');
+    } catch (error: any) {
+      console.error('Signup error in component:', error); // Debug log
+      const errorMessage = getAuthErrorMessage(error.code) || error.message;
+      setError(errorMessage);
+      showToast(errorMessage, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      await signInWithGoogle();
+      showToast('Account created successfully!', 'success');
+      router.push('/onboarding');
+    } catch (error: any) {
+      const errorMessage = getAuthErrorMessage(error.code) || error.message;
+      setError(errorMessage);
+      showToast(errorMessage, 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleNavigateToLogin = () => {
@@ -54,7 +134,7 @@ export default function SignupPage() {
         <p className="text-center text-brand-text-secondary mb-6">Join us and take control of your finances.</p>
         
         <div className="flex gap-4 mb-6">
-            <SocialButton icon={<GoogleIcon />} label="Google" />
+            <SocialButton icon={<GoogleIcon />} label="Google" onClick={handleGoogleSignUp} />
             <SocialButton icon={<FacebookIcon />} label="Facebook" />
         </div>
         
@@ -64,6 +144,12 @@ export default function SignupPage() {
             <div className="flex-grow border-t border-brand-border"></div>
         </div>
         
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+        
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="fullName">
@@ -72,9 +158,13 @@ export default function SignupPage() {
             <input
               type="text"
               id="fullName"
-              placeholder="Hossein"
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleInputChange}
+              required
+              disabled={loading}
               className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-3 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-300
-                         bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)]"
+                         bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50"
             />
           </div>
           <div className="mb-4">
@@ -84,9 +174,13 @@ export default function SignupPage() {
             <input
               type="email"
               id="email"
-              placeholder="you@example.com"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              required
+              disabled={loading}
               className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-3 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-300
-                         bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)]"
+                         bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50"
             />
           </div>
           <div className="mb-4">
@@ -97,9 +191,13 @@ export default function SignupPage() {
               <input
                 type={showPassword ? 'text' : 'password'}
                 id="password"
-                placeholder="••••••••"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                required
+                disabled={loading}
                 className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-3 pr-10 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-300
-                           bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)]"
+                           bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50"
               />
               <button
                 type="button"
@@ -111,13 +209,41 @@ export default function SignupPage() {
               </button>
             </div>
           </div>
+          <div className="mb-4">
+            <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="confirmPassword">
+              Confirm Password
+            </label>
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                required
+                disabled={loading}
+                className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-3 pr-10 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-300
+                           bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-brand-text-secondary hover:text-brand-text-primary transition-colors"
+                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              >
+                {showConfirmPassword ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+              </button>
+            </div>
+          </div>
           <button
             type="submit"
+            disabled={loading || !formData.email || !formData.password || !formData.fullName || !formData.confirmPassword}
             className="w-full bg-white text-black font-bold py-3 px-4 rounded-lg hover:bg-gray-200 transition duration-300 mt-6
                       shadow-[0_0_20px_rgba(255,255,255,0.1)]
-                      bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]"
+                      bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]
+                      disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Create Account
+            {loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
         <p className="text-center text-sm text-brand-text-secondary mt-8">
