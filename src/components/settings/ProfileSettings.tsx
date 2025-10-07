@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import SettingsCard from './SettingsCard';
 import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/context/AuthContext';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { updateUserProfile, getUserProfile } from '@/lib/firebase/auth';
 import { ChevronDownIcon, MagnifyingGlassIcon } from '@/components/icons/NavIcons';
 
@@ -52,6 +53,15 @@ const ProfileSettings: React.FC = () => {
                     bio: '',
                     photoURL: profile.photoURL || ''
                 });
+                
+                // Set currency from localStorage or default to USD
+                const savedCurrency = localStorage.getItem('userCurrency');
+                if (savedCurrency) {
+                    const currency = currencies.find(c => c.code === savedCurrency);
+                    if (currency) {
+                        setSelectedCurrency(currency);
+                    }
+                }
             }
         }
     }, [user, authLoading]);
@@ -92,6 +102,24 @@ const ProfileSettings: React.FC = () => {
             return;
         }
 
+        // Validate required fields
+        if (!formData.fullName.trim()) {
+            addToast('Full name is required', 'error');
+            return;
+        }
+
+        if (!formData.email.trim()) {
+            addToast('Email is required', 'error');
+            return;
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.email)) {
+            addToast('Please enter a valid email address', 'error');
+            return;
+        }
+
         setLoading(true);
         try {
             await updateUserProfile({
@@ -99,6 +127,9 @@ const ProfileSettings: React.FC = () => {
                 email: formData.email,
                 photoURL: formData.photoURL
             });
+            
+            // Save currency preference to localStorage
+            localStorage.setItem('userCurrency', selectedCurrency.code);
             
             addToast('Profile updated successfully!', 'success');
         } catch (error) {
@@ -120,6 +151,19 @@ const ProfileSettings: React.FC = () => {
         );
     }, [searchTerm]);
 
+    // Calculate profile completion percentage
+    const profileCompletion = useMemo(() => {
+        const fields = [
+            formData.fullName.trim(),
+            formData.email.trim(),
+            formData.photoURL.trim(),
+            formData.bio.trim(),
+            selectedCurrency.code
+        ];
+        const completedFields = fields.filter(field => field).length;
+        return Math.round((completedFields / fields.length) * 100);
+    }, [formData, selectedCurrency]);
+
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -139,6 +183,27 @@ const ProfileSettings: React.FC = () => {
             setTimeout(() => searchInputRef.current?.focus(), 100);
         }
     }, [isDropdownOpen]);
+
+    // Keyboard shortcuts
+    useKeyboardShortcuts([
+        {
+            key: 's',
+            ctrl: true,
+            callback: () => {
+                if (!loading && !authLoading) {
+                    handleSaveChanges();
+                }
+            }
+        },
+        {
+            key: 'escape',
+            callback: () => {
+                if (isDropdownOpen) {
+                    setIsDropdownOpen(false);
+                }
+            }
+        }
+    ]);
 
 
     return (
@@ -171,8 +236,11 @@ const ProfileSettings: React.FC = () => {
                         className="bg-white text-black text-sm font-bold px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors
                                shadow-[0_0_10px_rgba(255,255,255,0.1)]
                                bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]
-                               disabled:opacity-50 disabled:cursor-not-allowed">
-                        {loading ? 'Saving...' : 'Save Changes'}
+                               disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2">
+                        <span>{loading ? 'Saving...' : 'Save Changes'}</span>
+                        {!loading && (
+                            <span className="text-xs opacity-60">⌘S</span>
+                        )}
                     </button>
                 </>
             }
@@ -183,6 +251,25 @@ const ProfileSettings: React.FC = () => {
                 </div>
             ) : (
                 <>
+                    {/* Profile Completion Indicator */}
+                    <div className="mb-6 p-4 bg-brand-surface-2 border border-brand-border rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm font-medium text-brand-text-primary">Profile Completion</span>
+                            <span className="text-sm text-brand-text-secondary">{profileCompletion}%</span>
+                        </div>
+                        <div className="w-full bg-brand-border rounded-full h-2">
+                            <div 
+                                className="bg-gradient-to-r from-brand-blue to-blue-400 h-2 rounded-full transition-all duration-500"
+                                style={{ width: `${profileCompletion}%` }}
+                            />
+                        </div>
+                        {profileCompletion < 100 && (
+                            <p className="text-xs text-brand-text-secondary mt-2">
+                                Complete your profile to get the most out of Xpend
+                            </p>
+                        )}
+                    </div>
+
                     <div className="flex items-center space-x-4">
                         <div className="relative">
                             <img 

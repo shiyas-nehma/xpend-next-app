@@ -35,6 +35,7 @@ const InlineContent: React.FC = () => {
   const [onboardingCompleted, setOnboardingCompleted] = useState(() => getOnboardingStatus().completed);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activePage, setActivePage] = useState('Dashboard');
+  const [activeSettingsTab, setActiveSettingsTab] = useState('Profile');
   const [authPage, setAuthPage] = useState<AuthPage>('login');
   const [view, setView] = useState<View>('public');
   const [publicPage, setPublicPage] = useState<PublicPage>('landing');
@@ -71,6 +72,17 @@ const InlineContent: React.FC = () => {
       addToast('You have been logged out.', 'info');
     } else {
       setActivePage(page);
+      // Reset settings tab when navigating to settings
+      if (page === 'Settings') {
+        setActiveSettingsTab('Profile');
+      }
+    }
+  };
+
+  const handleNavigateToSettings = (tab?: string) => {
+    setActivePage('Settings');
+    if (tab) {
+      setActiveSettingsTab(tab);
     }
   };
   
@@ -144,16 +156,16 @@ const InlineContent: React.FC = () => {
         <div className="flex h-screen bg-brand-bg text-brand-text-primary font-sans">
         <Sidebar activePage={activePage} onNavigate={handleSidebarNavigate} />
         <main className="flex-1 overflow-y-auto relative min-w-0">
-            {activePage === 'dashboard' && <DashboardPage />}
-            {activePage === 'ai' && <AIPage />}
-            {activePage === 'accounts' && <AccountsPage />}
-            {activePage === 'income' && <IncomePage />}
-            {activePage === 'expense' && <ExpensePage />}
-            {activePage === 'category' && <CategoryPage />}
-            {activePage === 'budget' && <BudgetPage />}
-            {activePage === 'goals' && <GoalsPage />}
-            {activePage === 'report' && <ReportPage />}
-            {activePage === 'settings' && <SettingsPage />}
+            {activePage === 'Dashboard' && <DashboardPage />}
+            {activePage === 'AI' && <AIPage />}
+            {activePage === 'Accounts' && <AccountsPage />}
+            {activePage === 'Income' && <IncomePage />}
+            {activePage === 'Expense' && <ExpensePage />}
+            {activePage === 'Category' && <CategoryPage />}
+            {activePage === 'Budget' && <BudgetPage />}
+            {activePage === 'Goals' && <GoalsPage />}
+            {activePage === 'Report' && <ReportPage />}
+            {activePage === 'Settings' && <SettingsPage initialTab={activeSettingsTab} />}
         </main>
         </div>
     </DataProvider>

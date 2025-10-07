@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import ProfileSettings from '@/components/settings/ProfileSettings';
 import NotificationSettings from '@/components/settings/NotificationSettings';
 import BillingSettings from '@/components/settings/BillingSettings';
@@ -13,8 +14,19 @@ const TABS = {
   SECURITY: 'Security',
 };
 
-const SettingsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState(TABS.PROFILE);
+interface SettingsPageProps {
+  initialTab?: string;
+}
+
+const SettingsPage: React.FC<SettingsPageProps> = ({ initialTab }) => {
+  const [activeTab, setActiveTab] = useState(initialTab || TABS.PROFILE);
+
+  // Update active tab when initialTab prop changes
+  React.useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -34,32 +46,52 @@ const SettingsPage: React.FC = () => {
   const TabButton: React.FC<{ label: string }> = ({ label }) => (
     <button
       onClick={() => setActiveTab(label)}
-      className={`px-1 py-3 text-sm font-semibold transition-all duration-200 border-b-2
+      className={`px-1 py-3 text-sm font-semibold transition-all duration-200 border-b-2 relative
                   ${activeTab === label
                     ? 'text-brand-text-primary border-brand-blue'
                     : 'text-brand-text-secondary border-transparent hover:text-brand-text-primary'
                   }`}
     >
       {label}
+      {activeTab === label && (
+        <motion.div
+          layoutId="activeTab"
+          className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-blue"
+          transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+        />
+      )}
     </button>
   );
 
   return (
-    <div className="p-8">
-        <h1 className="text-2xl font-bold text-brand-text-primary mb-6">Settings</h1>
-        
-        {/* Tab Navigation */}
-        <div className="flex space-x-8 border-b border-brand-border mb-8">
-            <TabButton label={TABS.PROFILE} />
-            <TabButton label={TABS.BILLING} />
-            <TabButton label={TABS.NOTIFICATIONS} />
-            <TabButton label={TABS.SECURITY} />
-        </div>
+    <div className="p-8 max-w-4xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <h1 className="text-2xl font-bold text-brand-text-primary mb-6">Settings</h1>
+          
+          {/* Tab Navigation */}
+          <div className="flex space-x-8 border-b border-brand-border mb-8">
+              {Object.values(TABS).map((tab) => (
+                <TabButton key={tab} label={tab} />
+              ))}
+          </div>
 
-        {/* Tab Content */}
-        <div>
-            {renderContent()}
-        </div>
+          {/* Tab Content */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+                {renderContent()}
+            </motion.div>
+          </AnimatePresence>
+        </motion.div>
     </div>
   );
 };
