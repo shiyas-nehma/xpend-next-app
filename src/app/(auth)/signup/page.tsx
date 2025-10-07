@@ -5,9 +5,6 @@ import { useRouter } from 'next/navigation';
 import { EyeIcon, EyeOffIcon, GoogleIcon, FacebookIcon } from '@/components/icons/NavIcons';
 import { signUp, signInWithGoogle, getAuthErrorMessage } from '@/lib/firebase/auth';
 import { useToast } from '@/hooks/useToast';
-import { signupSchema, type SignupFormData, formatZodErrors, getFieldError, type ValidationErrors } from '@/lib/validations/auth';
-import { z } from 'zod';
-import PasswordStrength from '@/components/common/PasswordStrength';
 
 const Logo: React.FC = () => (
     <div className="flex items-center space-x-2">
@@ -29,11 +26,121 @@ const SocialButton: React.FC<{ icon: React.ReactNode; label: string; onClick?: (
     </button>
 );
 
+/**
+ * Password Requirements Component
+ * Displays real-time validation for password requirements:
+ * - At least 8 characters
+ * - One uppercase letter (A-Z)
+ * - One number (0-9)
+ * - One special character (!@#$%^&*(),.?":{}|<>)
+ */
+const PasswordRequirement: React.FC<{ met: boolean; text: string }> = ({ met, text }) => (
+  <div className="flex items-center gap-3 text-sm py-1">
+    <div className={`w-4 h-4 rounded-full flex items-center justify-center border-2 transition-all duration-200 ${
+      met 
+        ? 'bg-green-500 border-green-500' 
+        : 'bg-transparent border-gray-500'
+    }`}>
+      {met && (
+        <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+        </svg>
+      )}
+    </div>
+    <span className={`transition-colors duration-200 ${
+      met ? 'text-green-400' : 'text-brand-text-secondary'
+    }`}>
+      {text}
+    </span>
+  </div>
+);
+
+const PasswordRequirements: React.FC<{ password: string }> = ({ password }) => {
+  const requirements = [
+    { text: 'At least 8 characters', met: password.length >= 8 },
+    { text: 'One uppercase letter', met: /[A-Z]/.test(password) },
+    { text: 'One number', met: /[0-9]/.test(password) },
+    { text: 'One special character', met: /[!@#$%^&*(),.?":{}|<>]/.test(password) }
+  ];
+
+  const allRequirementsMet = requirements.every(req => req.met);
+
+  // Hide the requirements if all are met
+  if (allRequirementsMet && password.length > 0) {
+    return (
+      <div className="mt-3 p-3 bg-green-500/10 rounded-lg border border-green-500/30 transition-all duration-300">
+        <div className="flex items-center gap-2 text-green-400">
+          <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
+            <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <span className="text-sm font-medium">Password requirements met</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 p-3 bg-brand-surface-2/50 rounded-lg border border-brand-border/50 transition-all duration-300">
+      <div className="space-y-2">
+        {requirements.map((req, index) => (
+          <PasswordRequirement key={index} met={req.met} text={req.text} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Confirm Password Validation Component
+const ConfirmPasswordValidation: React.FC<{ 
+  password: string; 
+  confirmPassword: string; 
+  showValidation: boolean; 
+}> = ({ password, confirmPassword, showValidation }) => {
+  if (!showValidation || !confirmPassword) return null;
+
+  const passwordsMatch = password === confirmPassword;
+
+  return (
+    <div className={`mt-3 p-3 rounded-lg border transition-all duration-300 ${
+      passwordsMatch 
+        ? 'bg-green-500/10 border-green-500/30' 
+        : 'bg-red-500/10 border-red-500/30'
+    }`}>
+      <div className="flex items-center gap-2">
+        <div className={`w-4 h-4 rounded-full flex items-center justify-center border-2 transition-all duration-200 ${
+          passwordsMatch 
+            ? 'bg-green-500 border-green-500' 
+            : 'bg-red-500 border-red-500'
+        }`}>
+          {passwordsMatch ? (
+            <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          ) : (
+            <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          )}
+        </div>
+        <span className={`text-sm font-medium ${
+          passwordsMatch ? 'text-green-400' : 'text-red-400'
+        }`}>
+          {passwordsMatch ? 'Passwords match' : 'Passwords do not match'}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [formData, setFormData] = useState<SignupFormData>({ 
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] = useState(false);
+  const [formData, setFormData] = useState({ 
     fullName: '', 
     email: '', 
     password: '', 
@@ -41,96 +148,63 @@ export default function SignupPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const router = useRouter();
   const { addToast } = useToast();
+
+  // Check if password meets all requirements
+  const isPasswordValid = (password: string) => {
+    return password.length >= 8 &&
+           /[A-Z]/.test(password) &&
+           /[0-9]/.test(password) &&
+           /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Clear errors when user starts typing
-    if (error) setError('');
-    
-    // Real-time validation for all fields as user types
-    if (value.trim()) {
-      validateField(name, value);
-    } else {
-      // Clear errors if field is empty
-      setValidationErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
+    if (error) setError(''); // Clear error when user starts typing
   };
 
-  const validateField = (fieldName: string, value: string) => {
-    try {
-      if (fieldName === 'email') {
-        signupSchema.shape.email.parse(value);
-      } else if (fieldName === 'fullName') {
-        signupSchema.shape.fullName.parse(value);
-      } else if (fieldName === 'password') {
-        signupSchema.shape.password.parse(value);
-      } else if (fieldName === 'confirmPassword') {
-        // For confirmPassword, we need to check if it matches the current password
-        if (value !== formData.password) {
-          // Set error directly without throwing ZodError
-          setValidationErrors(prev => ({
-            ...prev,
-            [fieldName]: ['Passwords do not match']
-          }));
-          return;
-        }
-      }
-      
-      // Clear error for this field if validation passes
-      setValidationErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[fieldName];
-        return newErrors;
-      });
-    } catch (error: unknown) {
-      if (error instanceof z.ZodError) {
-        // Get the first error message or a fallback
-        const fieldError = error.errors?.[0]?.message;
-        if (fieldError) {
-          setValidationErrors(prev => ({
-            ...prev,
-            [fieldName]: [fieldError]
-          }));
-        }
-      }
-    }
-  };
-
-  const handleFieldBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    if (value.trim()) {
-      validateField(name, value);
-    }
-  };
-
-  const validateForm = (): boolean => {
-    try {
-      signupSchema.parse(formData);
-      setValidationErrors({});
-      return true;
-    } catch (error: unknown) {
-      if (error instanceof z.ZodError) {
-        const formattedErrors = formatZodErrors(error);
-        setValidationErrors(formattedErrors);
-      } else {
-        setValidationErrors({});
-      }
+  const validateForm = () => {
+    if (!formData.fullName.trim()) {
+      setError('Full name is required');
       return false;
     }
+    if (!formData.email.trim()) {
+      setError('Email is required');
+      return false;
+    }
+    
+    // Enhanced password validation
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return false;
+    }
+    if (!/[A-Z]/.test(formData.password)) {
+      setError('Password must contain at least one uppercase letter');
+      return false;
+    }
+    if (!/[0-9]/.test(formData.password)) {
+      setError('Password must contain at least one number');
+      return false;
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(formData.password)) {
+      setError('Password must contain at least one special character');
+      return false;
+    }
+    
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+    
+    console.log('Form submitted with data:', formData); // Debug log
     
     if (!validateForm()) {
       return;
@@ -147,11 +221,9 @@ export default function SignupPage() {
       });
       addToast('Account created successfully!', 'success');
       router.push('/onboarding');
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Signup error in component:', error); // Debug log
-      const errorMessage = error instanceof Error && error.message.includes('auth/') 
-        ? getAuthErrorMessage(error.message.split('/')[1]) 
-        : error instanceof Error ? error.message : 'Failed to create account';
+      const errorMessage = getAuthErrorMessage(error.code) || error.message;
       setError(errorMessage);
       addToast(errorMessage, 'error');
     } finally {
@@ -167,10 +239,8 @@ export default function SignupPage() {
       await signInWithGoogle();
       addToast('Account created successfully!', 'success');
       router.push('/onboarding');
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error && error.message.includes('auth/') 
-        ? getAuthErrorMessage(error.message.split('/')[1]) 
-        : error instanceof Error ? error.message : 'Failed to create account';
+    } catch (error: any) {
+      const errorMessage = getAuthErrorMessage(error.code) || error.message;
       setError(errorMessage);
       addToast(errorMessage, 'error');
     } finally {
@@ -224,43 +294,27 @@ export default function SignupPage() {
               name="fullName"
               value={formData.fullName}
               onChange={handleInputChange}
-              onBlur={handleFieldBlur}
               required
               disabled={loading}
-              className={`w-full bg-brand-surface-2 border rounded-lg px-3 py-3 text-brand-text-primary focus:outline-none focus:ring-2 transition-all duration-300
-                         bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50 ${
-                           getFieldError(validationErrors, 'fullName') 
-                             ? 'border-red-500 focus:ring-red-500' 
-                             : 'border-brand-border focus:ring-brand-blue'
-                         }`}
+              className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-3 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-300
+                         bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50"
             />
-            {getFieldError(validationErrors, 'fullName') && (
-              <p className="mt-1 text-sm text-red-400">{getFieldError(validationErrors, 'fullName')}</p>
-            )}
           </div>
           <div className="mb-4">
             <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="email">
               Email Address
             </label>
             <input
-              type="text"
+              type="email"
               id="email"
               name="email"
               value={formData.email}
               onChange={handleInputChange}
-              onBlur={handleFieldBlur}
               required
               disabled={loading}
-              className={`w-full bg-brand-surface-2 border rounded-lg px-3 py-3 text-brand-text-primary focus:outline-none focus:ring-2 transition-all duration-300
-                         bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50 ${
-                           getFieldError(validationErrors, 'email') 
-                             ? 'border-red-500 focus:ring-red-500' 
-                             : 'border-brand-border focus:ring-brand-blue'
-                         }`}
+              className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-3 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-300
+                         bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50"
             />
-            {getFieldError(validationErrors, 'email') && (
-              <p className="mt-1 text-sm text-red-400">{getFieldError(validationErrors, 'email')}</p>
-            )}
           </div>
           <div className="mb-4">
             <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="password">
@@ -273,14 +327,12 @@ export default function SignupPage() {
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
+                onFocus={() => setIsPasswordFocused(true)}
+                onBlur={() => setIsPasswordFocused(false)}
                 required
                 disabled={loading}
-                className={`w-full bg-brand-surface-2 border rounded-lg px-3 py-3 pr-10 text-brand-text-primary focus:outline-none focus:ring-2 transition-all duration-300
-                           bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50 ${
-                             getFieldError(validationErrors, 'password') 
-                               ? 'border-red-500 focus:ring-red-500' 
-                               : 'border-brand-border focus:ring-brand-blue'
-                           }`}
+                className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-3 pr-10 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-300
+                           bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50"
               />
               <button
                 type="button"
@@ -291,33 +343,7 @@ export default function SignupPage() {
                 {showPassword ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
               </button>
             </div>
-            {getFieldError(validationErrors, 'password') && (
-              <div className="mt-1 text-sm text-red-400">
-                {(() => {
-                  const errorMessage = getFieldError(validationErrors, 'password');
-                  if (errorMessage && errorMessage.includes('||')) {
-                    const parts = errorMessage.split('||');
-                    const title = parts[0];
-                    const items = parts.slice(1);
-                    return (
-                      <div>
-                        <div className="mb-2">{title}</div>
-                        <ul className="list-none space-y-1">
-                          {items.map((item, index) => (
-                            <li key={index} className="flex items-start ml-2">
-                              <span className="text-red-400 mr-2 mt-0.5">•</span>
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    );
-                  }
-                  return <div>{errorMessage}</div>;
-                })()}
-              </div>
-            )}
-            <PasswordStrength password={formData.password} />
+            {(formData.password || isPasswordFocused) && <PasswordRequirements password={formData.password} />}
           </div>
           <div className="mb-4">
             <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="confirmPassword">
@@ -330,14 +356,12 @@ export default function SignupPage() {
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
+                onFocus={() => setIsConfirmPasswordFocused(true)}
+                onBlur={() => setIsConfirmPasswordFocused(false)}
                 required
                 disabled={loading}
-                className={`w-full bg-brand-surface-2 border rounded-lg px-3 py-3 pr-10 text-brand-text-primary focus:outline-none focus:ring-2 transition-all duration-300
-                           bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50 ${
-                             getFieldError(validationErrors, 'confirmPassword') 
-                               ? 'border-red-500 focus:ring-red-500' 
-                               : 'border-brand-border focus:ring-brand-blue'
-                           }`}
+                className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-3 pr-10 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-300
+                           bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),transparent)] disabled:opacity-50"
               />
               <button
                 type="button"
@@ -348,13 +372,21 @@ export default function SignupPage() {
                 {showConfirmPassword ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
               </button>
             </div>
-            {getFieldError(validationErrors, 'confirmPassword') && (
-              <p className="mt-1 text-sm text-red-400">{getFieldError(validationErrors, 'confirmPassword')}</p>
-            )}
+            <ConfirmPasswordValidation 
+              password={formData.password}
+              confirmPassword={formData.confirmPassword}
+              showValidation={formData.confirmPassword.length > 0 || isConfirmPasswordFocused}
+            />
           </div>
           <button
             type="submit"
-            disabled={loading || !formData.email || !formData.password || !formData.fullName || !formData.confirmPassword}
+            disabled={loading || 
+                     !formData.email || 
+                     !formData.password || 
+                     !formData.fullName || 
+                     !formData.confirmPassword ||
+                     !isPasswordValid(formData.password) ||
+                     formData.password !== formData.confirmPassword}
             className="w-full bg-white text-black font-bold py-3 px-4 rounded-lg hover:bg-gray-200 transition duration-300 mt-6
                       shadow-[0_0_20px_rgba(255,255,255,0.1)]
                       bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]

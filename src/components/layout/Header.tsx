@@ -17,6 +17,7 @@ import {
 } from '@/components/icons/NavIcons';
 import { useData } from '@/hooks/useData';
 import { useToast } from '@/hooks/useToast';
+import { useAuth } from '@/context/AuthContext';
 import type { Income, Expense } from '@/types';
 
 type Notification = {
@@ -149,6 +150,18 @@ const Header: React.FC = () => {
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const notificationsRef = useRef<HTMLDivElement>(null);
     const unreadCount = mockNotifications.filter(n => !n.read).length;
+    const { user, loading } = useAuth();
+
+    // Extract user information with fallbacks
+    // Priority: displayName > email username > 'User'
+    const userName = user?.displayName || 
+                    (user?.email ? user.email.split('@')[0] : '') || 
+                    'User';
+    const userEmail = user?.email || '';
+    const userPhotoURL = user?.photoURL;
+
+    // Create a consistent avatar URL with fallback to generated avatar
+    const avatarUrl = userPhotoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=6366f1&color=fff&size=40`;
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -227,13 +240,35 @@ const Header: React.FC = () => {
             <ChevronRightIcon className="w-5 h-5 text-brand-text-secondary cursor-pointer" />
         </div>
 
-        <div className="flex items-center space-x-2">
-            <img src="https://i.pravatar.cc/40?u=hossein" alt="User" className="w-10 h-10 rounded-full" />
+        <div className="flex items-center space-x-2 cursor-pointer hover:bg-brand-surface-2/50 rounded-lg p-1 transition-colors" title={`${userName} (${userEmail})`}>
+            {loading ? (
+                <div className="w-10 h-10 rounded-full bg-brand-surface-2 animate-pulse"></div>
+            ) : (
+                <img 
+                    src={avatarUrl} 
+                    alt={userName} 
+                    className="w-10 h-10 rounded-full object-cover border-2 border-transparent hover:border-brand-blue/30 transition-colors" 
+                    onError={(e) => {
+                        // Fallback to UI Avatars if image fails to load
+                        const target = e.target as HTMLImageElement;
+                        target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=6366f1&color=fff&size=40`;
+                    }}
+                />
+            )}
             <div className="hidden lg:block">
-                <p className="font-semibold text-sm">Hossein</p>
-                <p className="text-xs text-brand-text-secondary">@user080523</p>
+                {loading ? (
+                    <>
+                        <div className="h-4 w-16 bg-brand-surface-2 rounded animate-pulse mb-1"></div>
+                        <div className="h-3 w-24 bg-brand-surface-2 rounded animate-pulse"></div>
+                    </>
+                ) : (
+                    <>
+                        <p className="font-semibold text-sm text-brand-text-primary truncate max-w-32">{userName}</p>
+                        <p className="text-xs text-brand-text-secondary truncate max-w-32">{userEmail}</p>
+                    </>
+                )}
             </div>
-            <ChevronDownIcon className="hidden sm:block w-5 h-5 text-brand-text-secondary" />
+            <ChevronDownIcon className="hidden sm:block w-5 h-5 text-brand-text-secondary transition-transform hover:rotate-180" />
         </div>
       </div>
       
