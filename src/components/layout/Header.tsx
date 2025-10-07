@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 // Removed direct GoogleGenerativeAI import; using server API route /api/ai/chat.
 import { 
     PlusIcon, 
@@ -21,6 +21,7 @@ import { useData } from '@/hooks/useData';
 import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/context/AuthContext';
 import type { Income, Expense } from '@/types';
+import { useCurrency } from '@/context/CurrencyContext';
 
 type Notification = {
     id: number;
@@ -30,12 +31,8 @@ type Notification = {
     read: boolean;
 };
 
-const mockNotifications: Notification[] = [
-    { id: 1, icon: <ExclamationTriangleIcon className="w-5 h-5 text-yellow-400" />, text: <p>You are about to cross your monthly <strong>food budget</strong>.</p>, time: '15m ago', read: false },
-    { id: 2, icon: <CheckCircleIcon className="w-5 h-5 text-green-400" />, text: <p>You saved <strong>10% more</strong> than last month. Keep it up!</p>, time: '2h ago', read: false },
-    { id: 3, icon: <InformationCircleIcon className="w-5 h-5 text-blue-400" />, text: <p>A large transaction of <strong>$850.00</strong> was categorized as 'Freelance'.</p>, time: '1d ago', read: false },
-    { id: 4, icon: <AIIcon className="w-5 h-5 text-brand-text-secondary" />, text: <p><strong>AI Assistant</strong> sent you a new insight about your budget.</p>, time: '2d ago', read: true },
-];
+// Notifications will be built using the active currency for any monetary values.
+// (Previously hardcoded $850.00)
 
 const DNDToggle: React.FC = () => {
   const [isOn, setIsOn] = useState(false);
@@ -61,6 +58,7 @@ const QuickAddBar: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const { categories, addIncome, addExpense } = useData();
     const { addToast } = useToast();
+    const { format } = useCurrency();
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -120,10 +118,10 @@ const QuickAddBar: React.FC = () => {
 
             if (result.type === 'income') {
                 await addIncome(newTransaction as Income);
-                addToast(`Income of $${result.amount.toFixed(2)} added to ${category.name}!`, 'success');
+                addToast(`Income of ${format(result.amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} added to ${category.name}!`, 'success');
             } else {
                 await addExpense(newTransaction as Expense);
-                addToast(`Expense of $${result.amount.toFixed(2)} added to ${category.name}!`, 'success');
+                addToast(`Expense of ${format(result.amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} added to ${category.name}!`, 'success');
             }
             setInputValue('');
 
@@ -163,7 +161,16 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToSettings }) => {
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const notificationsRef = useRef<HTMLDivElement>(null);
-    const unreadCount = mockNotifications.filter(n => !n.read).length;
+    const { format } = useCurrency();
+
+    const notifications: Notification[] = useMemo(() => ([
+        { id: 1, icon: <ExclamationTriangleIcon className="w-5 h-5 text-yellow-400" />, text: <p>You are about to cross your monthly <strong>food budget</strong>.</p>, time: '15m ago', read: false },
+        { id: 2, icon: <CheckCircleIcon className="w-5 h-5 text-green-400" />, text: <p>You saved <strong>10% more</strong> than last month. Keep it up!</p>, time: '2h ago', read: false },
+        { id: 3, icon: <InformationCircleIcon className="w-5 h-5 text-blue-400" />, text: <p>A large transaction of <strong>{format(850)}</strong> was categorized as 'Freelance'.</p>, time: '1d ago', read: false },
+        { id: 4, icon: <AIIcon className="w-5 h-5 text-brand-text-secondary" />, text: <p><strong>AI Assistant</strong> sent you a new insight about your budget.</p>, time: '2d ago', read: true },
+    ]), [format]);
+
+    const unreadCount = notifications.filter(n => !n.read).length;
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -213,7 +220,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToSettings }) => {
 
                     {/* Notifications List */}
                     <div className="max-h-80 overflow-y-auto">
-                        {mockNotifications.map(n => (
+                        {notifications.map(n => (
                              <div key={n.id} className={`p-3 flex items-start gap-3 border-b border-brand-border last:border-b-0 hover:bg-brand-surface-2/50 ${!n.read ? '' : 'opacity-60'}`}>
                                 <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5 ${!n.read ? 'bg-brand-surface-2' : 'bg-transparent'}`}>
                                     {n.icon}

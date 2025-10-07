@@ -1,6 +1,7 @@
 
 'use client'
 import React, { useState } from 'react';
+import { useCurrency } from '@/context/CurrencyContext';
 import { 
     StarIcon, 
     CheckIcon,
@@ -47,7 +48,7 @@ const featureIcons = {
 const plans = [
     {
         name: 'Free Plan',
-        price: { monthly: '$0', annual: '$0' },
+        price: { monthly: 0, annual: 0 },
         description: 'Perfect for getting started with the essentials of financial tracking and budgeting.',
         buttonText: 'Start for Free',
         features: [
@@ -63,7 +64,7 @@ const plans = [
     },
     {
         name: 'Pro Plan',
-        price: { monthly: '$9', annual: '$90' },
+        price: { monthly: 9, annual: 90 },
         description: 'Unlock AI insights, goal tracking, and advanced features to supercharge your finances.',
         buttonText: 'Start Free 7 Days Trial',
         isPopular: true,
@@ -124,10 +125,7 @@ const PricingCard: React.FC<{ plan: Plan; price: string; }> = ({ plan, price }) 
                     {price === 'Custom' ? (
                         <span className="text-5xl font-bold">{price}</span>
                     ) : (
-                        <>
-                            <span className="text-5xl font-bold">{price.split('/')[0]}</span>
-                            <span className="text-brand-text-secondary">/{price.split('/')[1]}</span>
-                        </>
+                        (() => { const [val, per] = price.split('/'); return <><span className="text-5xl font-bold">{val}</span><span className="text-brand-text-secondary">/{per}</span></>; })()
                     )}
                 </div>
                 
@@ -175,12 +173,14 @@ const PricingToggle: React.FC<{isAnnual: boolean, setIsAnnual: (isAnnual: boolea
 
 const Pricing: React.FC<PricingProps> = ({ onEnterApp }) => {
     const [isAnnual, setIsAnnual] = useState(false);
+    const { format } = useCurrency();
 
     const getPrice = (plan: Plan) => {
         if (plan.price.monthly === 'Custom') return 'Custom';
-        const price = isAnnual ? plan.price.annual : plan.price.monthly;
+        const raw = isAnnual ? plan.price.annual : plan.price.monthly;
         const period = isAnnual ? 'year' : 'month';
-        return `${price}/${period}`;
+        const value = typeof raw === 'number' ? format(raw, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : raw;
+        return `${value}/${period}`;
     };
 
     return (

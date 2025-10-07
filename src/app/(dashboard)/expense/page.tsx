@@ -1,8 +1,10 @@
+// Removed erroneous preamble lines introduced during currency integration.
 
 
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useCurrency } from '@/context/CurrencyContext';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PlusIcon, PencilIcon, TrashIcon, XIcon, CreditCardIcon, CashIcon, BankIcon, DocumentTextIcon, MagnifyingGlassIcon, GridIcon, ListIcon, RefreshIcon } from '@/components/icons/NavIcons';
 import type { Expense, Category, Recurrence } from '@/types';
@@ -226,6 +228,7 @@ const ExpenseModal: React.FC<{
 }> = ({ isOpen, onClose, onSave, expenseToEdit, initialData }) => {
     const isEditing = !!expenseToEdit;
     const { categories, addCategory } = useData();
+    const { symbol } = useCurrency();
     const [amount, setAmount] = useState<string>('0.00');
     const [description, setDescription] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<Expense['paymentMethod']>('Card');
@@ -364,7 +367,7 @@ const ExpenseModal: React.FC<{
                             <div className="text-center pt-2 pb-6 border-b border-brand-border">
                                 <label className="text-sm font-medium text-brand-text-secondary" htmlFor="expenseAmount">Amount</label>
                                 <div className="relative mt-1 flex justify-center items-center">
-                                    <span className="text-4xl font-medium text-brand-text-secondary mr-1">$</span>
+                                    <span className="text-4xl font-medium text-brand-text-secondary mr-1">{symbol}</span>
                                     <input
                                         id="expenseAmount"
                                         type="text"
@@ -519,6 +522,7 @@ const ExpenseCard: React.FC<{
     isAnimatingOut: boolean;
     isHighlighted: boolean;
 }> = ({ expense, onEdit, onDelete, isAnimatingIn, isAnimatingOut, isHighlighted }) => {
+    const { format } = useCurrency();
     return (
         <motion.div 
             className={`group relative p-4 bg-brand-surface rounded-2xl border border-brand-border flex flex-col cursor-pointer
@@ -578,7 +582,7 @@ const ExpenseCard: React.FC<{
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: 0.2, duration: 0.5, type: "spring" }}
                          >
-                            -${expense.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            -{format(expense.amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                          </motion.p>
                     </div>
                 </div>
@@ -640,6 +644,7 @@ const ExpenseListItem: React.FC<{
     isAnimatingOut: boolean;
     isHighlighted: boolean;
 }> = ({ expense, onEdit, onDelete, isAnimatingIn, isAnimatingOut, isHighlighted }) => {
+    const { format } = useCurrency();
     return (
         <motion.div 
             className={`group relative px-4 py-3 bg-brand-surface rounded-lg border border-brand-border flex items-center gap-4 cursor-pointer
@@ -706,7 +711,7 @@ const ExpenseListItem: React.FC<{
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.2, duration: 0.5, type: "spring" }}
                 >
-                    -${expense.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    -{format(expense.amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </motion.p>
             </div>
             

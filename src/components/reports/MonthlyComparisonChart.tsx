@@ -1,21 +1,23 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import { useCurrency } from '@/context/CurrencyContext';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
 import type { Income, Expense } from '@/types';
 import ReportCard from '@/components/reports/ReportCard';
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface RechartsPayloadItem { dataKey?: string; value?: number; }
+const CustomTooltip = ({ active, payload, label, formatFn }: { active?: boolean; payload?: RechartsPayloadItem[]; label?: string; formatFn: (v:number)=>string; }) => {
   if (active && payload && payload.length) {
-    const income = payload.find(p => p.dataKey === 'Income')?.value || 0;
-    const expense = payload.find(p => p.dataKey === 'Expense')?.value || 0;
-    const net = payload.find(p => p.dataKey === 'Net Flow')?.value || 0;
+    const income = payload.find((p: RechartsPayloadItem) => p.dataKey === 'Income')?.value || 0;
+    const expense = payload.find((p: RechartsPayloadItem) => p.dataKey === 'Expense')?.value || 0;
+    const net = payload.find((p: RechartsPayloadItem) => p.dataKey === 'Net Flow')?.value || 0;
     return (
       <div className="bg-black/80 backdrop-blur-sm p-3 rounded-lg border border-brand-border shadow-lg text-sm">
         <p className="font-bold text-white mb-2">{label}</p>
-        <p className="text-blue-400">{`Income: $${income.toLocaleString()}`}</p>
-        <p className="text-red-400">{`Expense: $${expense.toLocaleString()}`}</p>
-        <p className="text-brand-yellow font-semibold">{`Net Flow: $${net.toLocaleString()}`}</p>
+        <p className="text-blue-400">Income: {formatFn(income)}</p>
+        <p className="text-red-400">Expense: {formatFn(expense)}</p>
+        <p className="text-brand-yellow font-semibold">Net Flow: {formatFn(net)}</p>
       </div>
     );
   }
@@ -28,6 +30,7 @@ interface FinancialSummaryChartProps {
 }
 
 const FinancialSummaryChart: React.FC<FinancialSummaryChartProps> = ({ incomes, expenses }) => {
+  const { format } = useCurrency();
   const data = useMemo(() => {
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const dataByMonth: { [key: string]: { income: number; expense: number } } = {};
@@ -74,8 +77,12 @@ const FinancialSummaryChart: React.FC<FinancialSummaryChartProps> = ({ incomes, 
           <ComposedChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
             <CartesianGrid stroke="#2D2D2D" strokeDasharray="3 3" />
             <XAxis dataKey="month" stroke="#8A8A8A" fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis stroke="#8A8A8A" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value/1000}k`} />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} />
+            <YAxis stroke="#8A8A8A" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => format(value)} />
+            <Tooltip 
+              content={<CustomTooltip formatFn={(v:number)=>format(v)} />}
+              cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+              formatter={(value: number) => format(value)}
+            />
             <Legend wrapperStyle={{fontSize: "14px"}} />
             <Bar dataKey="Income" fill="#3b82f6" barSize={20} radius={[4, 4, 0, 0]} />
             <Bar dataKey="Expense" fill="#ef4444" barSize={20} radius={[4, 4, 0, 0]} />

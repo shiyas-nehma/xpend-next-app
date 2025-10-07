@@ -3,6 +3,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useCurrency } from '@/context/CurrencyContext';
 import { PlusIcon, PencilIcon, TrashIcon, XIcon, CreditCardIcon, CashIcon, BankIcon, ChevronDownIcon, MagnifyingGlassIcon, GridIcon, ListIcon, RefreshIcon } from '@/components/icons/NavIcons';
 import type { Income, Category, Recurrence } from '@/types';
 import CategoryModal from '@/components/category/CategoryModal';
@@ -218,6 +219,7 @@ const IncomeModal: React.FC<{
 
     if (!isOpen) return null;
 
+    const { format } = useCurrency();
     return (
         <>
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4 animate-fade-in-scale">
@@ -241,7 +243,7 @@ const IncomeModal: React.FC<{
                             <div className="text-center pt-2 pb-6 border-b border-brand-border">
                                 <label className="text-sm font-medium text-brand-text-secondary" htmlFor="incomeAmount">Amount</label>
                                 <div className="relative mt-1 flex justify-center items-center">
-                                    <span className="text-4xl font-medium text-brand-text-secondary mr-1">$</span>
+                                    <span className="text-4xl font-medium text-brand-text-secondary mr-1">{format(0).replace(/0+[.,]?0*$/,'').trim() || '$'}</span>
                                     <input
                                         id="incomeAmount"
                                         type="text"
@@ -393,6 +395,7 @@ const IncomeCard: React.FC<{
     isAnimatingOut: boolean;
     isHighlighted: boolean;
 }> = ({ income, onEdit, onDelete, isAnimatingIn, isAnimatingOut, isHighlighted }) => {
+    const { format } = useCurrency();
     return (
         <motion.div 
             className={`group relative p-4 bg-brand-surface rounded-2xl border border-brand-border flex flex-col cursor-pointer
@@ -446,13 +449,13 @@ const IncomeCard: React.FC<{
                         </motion.div>
                     </div>
                      <div className="text-right shrink-0 pl-2">
-                         <motion.p 
+                                 <motion.p 
                             className="text-xl font-bold text-blue-400"
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: 0.2, duration: 0.5, type: "spring" }}
                          >
-                            +${income.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                     +{format(income.amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                          </motion.p>
                     </div>
                 </div>
@@ -514,6 +517,7 @@ const IncomeListItem: React.FC<{
     isAnimatingOut: boolean;
     isHighlighted: boolean;
 }> = ({ income, onEdit, onDelete, isAnimatingIn, isAnimatingOut, isHighlighted }) => {
+    const { format } = useCurrency();
     return (
         <motion.div 
             className={`group relative px-4 py-3 bg-brand-surface rounded-lg border border-brand-border flex items-center gap-4 cursor-pointer
@@ -580,7 +584,7 @@ const IncomeListItem: React.FC<{
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.2, duration: 0.5, type: "spring" }}
                 >
-                    +${income.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    +{format(income.amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </motion.p>
             </div>
             

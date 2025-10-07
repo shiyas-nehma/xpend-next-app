@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
+import { useCurrency } from '@/context/CurrencyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import MonthlyComparisonChart from '@/components/reports/MonthlyComparisonChart';
 import MonthlySpendChart from '@/components/reports/MonthlySpendChart';
@@ -131,6 +132,7 @@ const CHART_COLORS = ['#60a5fa', '#818cf8', '#a78bfa', '#f472b6', '#fb7185', '#f
 const ReportPage: React.FC = () => {
   const { incomes, expenses, categories } = useData();
   const { addToast } = useToast();
+  const { format } = useCurrency();
   
   // State management
   const [selectedView, setSelectedView] = useState<ReportView>('overview');
@@ -543,7 +545,7 @@ const ReportPage: React.FC = () => {
             <span className="text-sm font-medium text-brand-text-secondary">Total Income</span>
           </div>
           <p className="text-2xl font-bold text-green-400">
-            ${analytics.totalIncome.toLocaleString()}
+            {format(analytics.totalIncome, { maximumFractionDigits: 0 })}
           </p>
           <p className={`text-xs ${analytics.incomeTrend >= 0 ? 'text-green-400' : 'text-red-400'}`}>
             {analytics.incomeTrend >= 0 ? '+' : ''}{analytics.incomeTrend.toFixed(1)}% vs previous period
@@ -559,7 +561,7 @@ const ReportPage: React.FC = () => {
             <span className="text-sm font-medium text-brand-text-secondary">Total Expenses</span>
           </div>
           <p className="text-2xl font-bold text-red-400">
-            ${analytics.totalExpenses.toLocaleString()}
+            {format(analytics.totalExpenses, { maximumFractionDigits: 0 })}
           </p>
           <p className={`text-xs ${analytics.expenseTrend <= 0 ? 'text-green-400' : 'text-red-400'}`}>
             {analytics.expenseTrend >= 0 ? '+' : ''}{analytics.expenseTrend.toFixed(1)}% vs previous period
@@ -574,8 +576,8 @@ const ReportPage: React.FC = () => {
             <CalendarIcon className="w-4 h-4 text-blue-400" />
             <span className="text-sm font-medium text-brand-text-secondary">Net Income</span>
           </div>
-          <p className={`text-2xl font-bold ${analytics.netIncome >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            ${analytics.netIncome.toLocaleString()}
+          <p className={`text-2xl font-bold ${analytics.netIncome >= 0 ? 'text-green-400' : 'text-red-400'}`}> 
+            {format(analytics.netIncome, { maximumFractionDigits: 0 })}
           </p>
           <p className="text-xs text-brand-text-secondary">
             {analytics.savingsRate.toFixed(1)}% savings rate
@@ -591,7 +593,7 @@ const ReportPage: React.FC = () => {
             <span className="text-sm font-medium text-brand-text-secondary">Daily Average</span>
           </div>
           <p className="text-lg font-bold text-brand-text-primary">
-            ${analytics.avgDailyExpenses.toFixed(2)}
+            {format(analytics.avgDailyExpenses, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
           <p className="text-xs text-brand-text-secondary">
             Expense per day
@@ -662,12 +664,12 @@ const ReportPage: React.FC = () => {
                         cy="50%"
                         outerRadius={80}
                         dataKey="value"
-                        label={(entry: any) => `$${entry.value.toLocaleString()}`}
+                        label={(entry: any) => format(entry.value)}
                       >
                         <Cell fill="#22c55e" />
                         <Cell fill="#ef4444" />
                       </Pie>
-                      <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`} />
+                      <Tooltip formatter={(value: number) => format(value)} />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
@@ -697,7 +699,7 @@ const ReportPage: React.FC = () => {
                         </div>
                       </div>
                       <p className="font-semibold text-brand-text-primary">
-                        ${item.totalAmount.toLocaleString()}
+                        {format(item.totalAmount, { maximumFractionDigits: 0 })}
                       </p>
                     </motion.div>
                   ))}
@@ -734,7 +736,7 @@ const ReportPage: React.FC = () => {
                           border: '1px solid #374151',
                           borderRadius: '8px' 
                         }}
-                        formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+                        formatter={(value: number) => [format(value), '']}
                       />
                       <Legend />
                       <Area type="monotone" dataKey="income" stackId="1" stroke="#22c55e" fill="#22c55e" fillOpacity={0.6} />
@@ -807,7 +809,7 @@ const ReportPage: React.FC = () => {
                       <div className="flex justify-between">
                         <span className="text-sm text-brand-text-secondary">Total Amount</span>
                         <span className="font-semibold text-brand-text-primary">
-                          ${item.totalAmount.toLocaleString()}
+                          {format(item.totalAmount, { maximumFractionDigits: 0 })}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -820,7 +822,7 @@ const ReportPage: React.FC = () => {
                         <div className="flex justify-between">
                           <span className="text-sm text-green-400">Income</span>
                           <span className="font-semibold text-green-400">
-                            ${item.incomeAmount.toLocaleString()}
+                            {format(item.incomeAmount, { maximumFractionDigits: 0 })}
                           </span>
                         </div>
                       )}
@@ -828,7 +830,7 @@ const ReportPage: React.FC = () => {
                         <div className="flex justify-between">
                           <span className="text-sm text-red-400">Expenses</span>
                           <span className="font-semibold text-red-400">
-                            ${item.expenseAmount.toLocaleString()}
+                            {format(item.expenseAmount, { maximumFractionDigits: 0 })}
                           </span>
                         </div>
                       )}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useCurrency } from '@/context/CurrencyContext';
 import ReportCard from './ReportCard';
 import type { Income, Expense } from '@/types';
 import { CalendarIcon } from '@/components/icons/NavIcons';
@@ -22,6 +23,7 @@ interface TransactionsReportProps {
 
 const TransactionsReport: React.FC<TransactionsReportProps> = ({ incomes, expenses }) => {
     const today = new Date();
+    const { format } = useCurrency();
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
     const [startDate, setStartDate] = useState<string>(toInputDateString(startOfMonth));
@@ -121,19 +123,19 @@ const TransactionsReport: React.FC<TransactionsReportProps> = ({ incomes, expens
                 <div className="bg-brand-surface-2 p-4 rounded-lg border border-brand-border">
                     <p className="text-sm text-brand-text-secondary">Total Income</p>
                     <p className="text-2xl font-bold text-blue-400">
-                        +${summary.totalIncome.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        +{format(summary.totalIncome, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                 </div>
                 <div className="bg-brand-surface-2 p-4 rounded-lg border border-brand-border">
                     <p className="text-sm text-brand-text-secondary">Total Expense</p>
                     <p className="text-2xl font-bold text-red-400">
-                        -${summary.totalExpense.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        -{format(summary.totalExpense, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                 </div>
                 <div className="bg-brand-surface-2 p-4 rounded-lg border border-brand-border">
                     <p className="text-sm text-brand-text-secondary">Net Flow</p>
                     <p className={`text-2xl font-bold ${summary.netFlow >= 0 ? 'text-green-400' : 'text-orange-500'}`}>
-                        {summary.netFlow < 0 ? '-' : '+'}${Math.abs(summary.netFlow).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {summary.netFlow < 0 ? '-' : '+'}{format(Math.abs(summary.netFlow), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                 </div>
             </div>
@@ -163,7 +165,7 @@ const TransactionsReport: React.FC<TransactionsReportProps> = ({ incomes, expens
                                     </span>
                                 </td>
                                 <td className={`py-3 px-4 text-sm font-bold ${t.type === 'Income' ? 'text-blue-400' : 'text-red-400'}`}>
-                                    {t.type === 'Income' ? '+' : '-'}${t.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    {t.type === 'Income' ? '+' : '-'}{format(t.amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </td>
                             </tr>
                         ))}

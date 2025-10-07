@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useCurrency } from '@/context/CurrencyContext';
 import { PlusIcon, PencilIcon, TrashIcon, BankIcon, CreditCardIcon, ChartLineIcon, DocumentTextIcon, PiggyBankIcon } from '@/components/icons/NavIcons';
 import type { Account } from '@/types';
 import AccountModal from '@/components/accounts/AccountModal';
@@ -22,12 +23,7 @@ const accountTypeIcons: Record<Account['type'], React.ReactNode> = {
     'Loan': <DocumentTextIcon />,
 };
 
-const formatCurrency = (value: number) => {
-    return value.toLocaleString('en-US', {
-        style: 'currency',
-        currency: 'USD',
-    });
-};
+// formatting now provided by currency context
 
 // Animation variants
 const containerVariants = {
@@ -63,6 +59,7 @@ const itemVariants = {
 };
 
 const NetWorthCard: React.FC<{ accounts: Account[] }> = ({ accounts }) => {
+    const { format } = useCurrency();
     const netWorth = useMemo(() => accounts.reduce((sum, acc) => sum + acc.balance, 0), [accounts]);
     const assets = useMemo(() => accounts.filter(a => a.balance >= 0).reduce((sum, acc) => sum + acc.balance, 0), [accounts]);
     const liabilities = useMemo(() => accounts.filter(a => a.balance < 0).reduce((sum, acc) => sum + acc.balance, 0), [accounts]);
@@ -100,7 +97,7 @@ const NetWorthCard: React.FC<{ accounts: Account[] }> = ({ accounts }) => {
                         transition={{ delay: 0.5, duration: 0.5, type: "spring" }}
                         key={netWorth}
                     >
-                        {formatCurrency(netWorth)}
+                        {format(netWorth)}
                     </motion.p>
                 </motion.div>
                 <motion.div 
@@ -121,7 +118,7 @@ const NetWorthCard: React.FC<{ accounts: Account[] }> = ({ accounts }) => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3 }}
                         >
-                            {formatCurrency(assets)}
+                            {format(assets)}
                         </motion.p>
                     </motion.div>
                     <motion.div
@@ -136,7 +133,7 @@ const NetWorthCard: React.FC<{ accounts: Account[] }> = ({ accounts }) => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3 }}
                         >
-                            {formatCurrency(liabilities)}
+                            {format(liabilities)}
                         </motion.p>
                     </motion.div>
                 </motion.div>
@@ -149,7 +146,9 @@ const AccountCard: React.FC<{
     account: Account;
     onEdit: (account: Account) => void;
     onDelete: (account: Account) => void;
-}> = ({ account, onEdit, onDelete }) => (
+}> = ({ account, onEdit, onDelete }) => {
+    const { format, symbol } = useCurrency();
+    return (
     <motion.div 
         className="group relative p-4 bg-brand-surface rounded-2xl border border-brand-border flex flex-col"
         variants={itemVariants}
@@ -216,7 +215,7 @@ const AccountCard: React.FC<{
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ type: "spring", stiffness: 400 }}
                     >
-                        {formatCurrency(account.balance)}
+                        {format(account.balance)}
                     </motion.p>
                 </motion.div>
             </div>
@@ -269,7 +268,8 @@ const AccountCard: React.FC<{
             </motion.button>
         </motion.div>
     </motion.div>
-);
+    );
+};
 
 export default function AccountsPage() {
     const { user, loading: authLoading } = useAuth();

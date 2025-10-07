@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import { useCurrency } from '@/context/CurrencyContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import type { Expense } from '@/types';
 import ReportCard from './ReportCard';
@@ -16,7 +17,8 @@ const CustomTooltip = ({ active, payload }: any) => {
             <span style={{backgroundColor: payload[0].fill}} className="w-3 h-3 rounded-full mr-2"></span>
             {data.name}
         </p>
-        <p className="text-brand-text-primary mt-1">{`Amount: $${data.value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}</p>
+                {/* Currency formatting injected in wrapper component */}
+                <p className="text-brand-text-primary mt-1">Amount: {data.value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
         <p className="text-brand-text-secondary">{`(${data.percent}%)`}</p>
       </div>
     );
@@ -29,6 +31,7 @@ interface CategorySpendDonutProps {
 }
 
 const CategorySpendDonut: React.FC<CategorySpendDonutProps> = ({ expenses }) => {
+    const { format } = useCurrency();
     const { chartData, totalExpenses } = useMemo(() => {
         const now = new Date();
         const currentMonth = now.getMonth();
@@ -83,7 +86,7 @@ const CategorySpendDonut: React.FC<CategorySpendDonutProps> = ({ expenses }) => 
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                         <p className="text-sm text-brand-text-secondary">Total Spent</p>
                         <p className="text-2xl font-bold text-brand-text-primary">
-                            ${totalExpenses.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            {format(totalExpenses, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                     </div>
                 </div>
@@ -96,7 +99,7 @@ const CategorySpendDonut: React.FC<CategorySpendDonutProps> = ({ expenses }) => 
                                         <span className="w-3 h-3 rounded-full mr-2 shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }}></span>
                                         <span className="text-brand-text-secondary truncate" title={entry.name}>{entry.name}</span>
                                     </div>
-                                    <span className="font-semibold text-brand-text-primary ml-2">${entry.value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                    <span className="font-semibold text-brand-text-primary ml-2">{format(entry.value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </li>
                              ))}
                         </ul>

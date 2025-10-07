@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useCurrency } from '@/context/CurrencyContext';
 import { motion } from 'framer-motion';
 import { WalletIcon, GoalIcon, AIIcon, PlusIcon } from '@/components/icons/OnboardingIcons';
 
@@ -16,22 +17,25 @@ export const WelcomeVisual: React.FC = () => (
     </div>
 );
 
-export const TransactionsVisual: React.FC = () => (
-    <Card className="w-72 space-y-2">
+export const TransactionsVisual: React.FC = () => {
+    const { format } = useCurrency();
+    return (
+      <Card className="w-72 space-y-2">
         <div className="flex items-center justify-between bg-brand-surface-2 p-2 rounded-lg">
             <span className="text-sm font-medium">Monthly Salary</span>
-            <span className="text-sm font-bold text-green-400">+$5,000.00</span>
+            <span className="text-sm font-bold text-green-400">+{format(5000)}</span>
         </div>
         <div className="flex items-center justify-between bg-brand-surface-2 p-2 rounded-lg">
             <span className="text-sm font-medium">Groceries</span>
-            <span className="text-sm font-bold text-red-400">-$112.50</span>
+            <span className="text-sm font-bold text-red-400">-{format(112.50)}</span>
         </div>
         <div className="flex items-center justify-between bg-brand-surface-2 p-2 rounded-lg opacity-70">
             <span className="text-sm font-medium">Movie Tickets</span>
-            <span className="text-sm font-bold text-red-400">-$35.00</span>
+            <span className="text-sm font-bold text-red-400">-{format(35)}</span>
         </div>
-    </Card>
-);
+      </Card>
+    );
+};
 
 export const BudgetsVisual: React.FC = () => (
     <div className="w-40 h-40 rounded-full flex items-center justify-center bg-brand-surface p-2 border-4 border-brand-border">
@@ -43,15 +47,17 @@ export const BudgetsVisual: React.FC = () => (
     </div>
 );
 
-export const GoalsVisual: React.FC = () => (
-    <Card className="w-72">
+export const GoalsVisual: React.FC = () => {
+    const { format } = useCurrency();
+    return (
+      <Card className="w-72">
         <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-brand-surface-2 rounded-lg flex items-center justify-center">
                 <GoalIcon />
             </div>
             <div>
                 <p className="text-sm font-semibold text-left">Vacation Fund</p>
-                <p className="text-xs text-brand-text-secondary text-left">$3,500 / $5,000</p>
+                <p className="text-xs text-brand-text-secondary text-left">{format(3500)} / {format(5000)}</p>
             </div>
         </div>
         <div className="w-full h-2.5 bg-brand-surface-2 rounded-full">
@@ -62,22 +68,26 @@ export const GoalsVisual: React.FC = () => (
                 transition={{ duration: 1, delay: 0.2, ease: "easeInOut" }}
             />
         </div>
-    </Card>
-);
+      </Card>
+    );
+};
 
-export const AIInsightsVisual: React.FC = () => (
-    <Card className="w-72">
+export const AIInsightsVisual: React.FC = () => {
+    const { format } = useCurrency();
+    return (
+      <Card className="w-72">
         <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-yellow-500/10 rounded-lg flex items-center justify-center">
                 <AIIcon />
             </div>
             <div>
                 <p className="text-sm font-semibold text-left">AI Insight</p>
-                <p className="text-xs text-brand-text-secondary text-left">You could save $50/month on subscriptions.</p>
+                <p className="text-xs text-brand-text-secondary text-left">You could save {format(50)}/month on subscriptions.</p>
             </div>
         </div>
-    </Card>
-);
+      </Card>
+    );
+};
 
 export const FinalSetupVisual: React.FC<{ onFinish: () => void }> = ({ onFinish }) => (
     <div className="w-80 space-y-3">

@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useCurrency } from '@/context/CurrencyContext';
 // Removed direct GoogleGenerativeAI import; using server AI route.
 import type { Goal } from '@/types';
 import { XIcon, SparklesIcon } from '@/components/icons/NavIcons';
@@ -23,6 +24,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, goalToEd
     const [tags, setTags] = useState('');
 
     const [aiPrompt, setAiPrompt] = useState('');
+    const { symbol } = useCurrency();
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationError, setGenerationError] = useState<string | null>(null);
 
@@ -114,7 +116,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, goalToEd
                                     id="ai-prompt"
                                     value={aiPrompt}
                                     onChange={e => setAiPrompt(e.target.value)}
-                                    placeholder="e.g., Save $5,000 for a trip to Japan by next year"
+                                    placeholder={`e.g., Save ${symbol}5,000 for a trip to Japan by next year`}
                                     className="flex-grow bg-brand-surface border border-brand-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-blue"
                                     disabled={isGenerating}
                                 />

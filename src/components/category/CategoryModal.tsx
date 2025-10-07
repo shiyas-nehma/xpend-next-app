@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useCurrency } from '@/context/CurrencyContext';
 import type { Category } from '@/types';
 import { XIcon, SparklesIcon } from '@/components/icons/NavIcons';
 
@@ -26,6 +27,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, onSave, 
   const pickerRef = useRef<HTMLDivElement>(null);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
+  const { symbol } = useCurrency();
 
   useEffect(() => {
     if (category) {
@@ -237,7 +239,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, onSave, 
                         Monthly Budget (Optional)
                     </label>
                     <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-secondary">$</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-secondary">{symbol}</span>
                         <input
                         type="number"
                         id="categoryBudget"

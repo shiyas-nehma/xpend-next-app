@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/context/AuthContext';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { updateUserProfile, getUserProfile } from '@/lib/firebase/auth';
+import { getUserExtraProfile, upsertUserExtraProfile } from '@/lib/firebase/userProfileService';
 import { ChevronDownIcon, MagnifyingGlassIcon } from '@/components/icons/NavIcons';
 
 const currencies = [
@@ -43,27 +44,30 @@ const ProfileSettings: React.FC = () => {
 
     // Initialize form data with user information
     useEffect(() => {
-        if (user && !authLoading) {
-            const profile = getUserProfile();
-            if (profile) {
-                setFormData({
-                    fullName: profile.displayName || '',
-                    username: `@${profile.displayName?.toLowerCase().replace(/\s+/g, '') || 'user'}`,
-                    email: profile.email || '',
-                    bio: '',
-                    photoURL: profile.photoURL || ''
-                });
-                
-                // Set currency from localStorage or default to USD
-                const savedCurrency = localStorage.getItem('userCurrency');
-                if (savedCurrency) {
-                    const currency = currencies.find(c => c.code === savedCurrency);
-                    if (currency) {
-                        setSelectedCurrency(currency);
-                    }
+        let cancelled = false;
+        const init = async () => {
+            if (user && !authLoading) {
+                const profile = getUserProfile();
+                const extra = await getUserExtraProfile();
+                if (cancelled) return;
+                if (profile) {
+                    const derivedUsername = `@${profile.displayName?.toLowerCase().replace(/\s+/g, '') || 'user'}`;
+                    setFormData({
+                        fullName: profile.displayName || '',
+                        username: extra?.username || derivedUsername,
+                        email: profile.email || '',
+                        bio: extra?.bio || '',
+                        photoURL: profile.photoURL || ''
+                    });
+                    // Currency from Firestore extra profile (fallback localStorage, then USD)
+                    const currencyCode = extra?.currency || localStorage.getItem('userCurrency') || 'USD';
+                    const currency = currencies.find(c => c.code === currencyCode) || currencies[0];
+                    setSelectedCurrency(currency);
                 }
             }
-        }
+        };
+        init();
+        return () => { cancelled = true; };
     }, [user, authLoading]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -127,10 +131,21 @@ const ProfileSettings: React.FC = () => {
                 email: formData.email,
                 photoURL: formData.photoURL
             });
-            
-            // Save currency preference to localStorage
+
+            const symbol = new Intl.NumberFormat(undefined, { style: 'currency', currency: selectedCurrency.code })
+                .formatToParts(0)
+                .find(p => p.type === 'currency')?.value || '$';
+
+            await upsertUserExtraProfile({
+                username: formData.username,
+                bio: formData.bio,
+                currency: selectedCurrency.code,
+                currencySymbol: symbol
+            });
+
+            // Mirror to localStorage for quick read (optional cache)
             localStorage.setItem('userCurrency', selectedCurrency.code);
-            
+
             addToast('Profile updated successfully!', 'success');
         } catch (error) {
             console.error('Profile update error:', error);
@@ -218,12 +233,18 @@ const ProfileSettings: React.FC = () => {
                             // Reset form to original values
                             const profile = getUserProfile();
                             if (profile) {
-                                setFormData({
-                                    fullName: profile.displayName || '',
-                                    username: `@${profile.displayName?.toLowerCase().replace(/\s+/g, '') || 'user'}`,
-                                    email: profile.email || '',
-                                    bio: '',
-                                    photoURL: profile.photoURL || ''
+                                getUserExtraProfile().then(extra => {
+                                    setFormData({
+                                        fullName: profile.displayName || '',
+                                        username: extra?.username || `@${profile.displayName?.toLowerCase().replace(/\s+/g, '') || 'user'}`,
+                                        email: profile.email || '',
+                                        bio: extra?.bio || '',
+                                        photoURL: profile.photoURL || ''
+                                    });
+                                    if (extra?.currency) {
+                                        const cur = currencies.find(c => c.code === extra.currency);
+                                        if (cur) setSelectedCurrency(cur);
+                                    }
                                 });
                             }
                         }}

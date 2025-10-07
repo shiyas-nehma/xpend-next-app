@@ -21,6 +21,7 @@ import {
     Bar
 } from 'recharts';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useCurrency } from '@/context/CurrencyContext';
 
 // Custom icons for trending
 const TrendingUpIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -132,14 +133,14 @@ const getBudgetStatusStyles = (amount: number, budget: number, type: 'Expense' |
 };
 
 const BudgetStatusCard: React.FC<BudgetStatusCardProps> = ({ category, currentAmount, onUpdateBudget, editable }) => {
+    const { format } = useCurrency();
     const { bar, text, progress } = getBudgetStatusStyles(currentAmount, category.budget, category.type);
     const remaining = category.budget - currentAmount;
     const isOver = remaining < 0;
     const [isEditing, setIsEditing] = useState(false);
     const [draftBudget, setDraftBudget] = useState<string>(category.budget.toString());
     const [saving, setSaving] = useState(false);
-
-    const formatCurrency = (value: number) => `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const formatCurrency = (value: number) => format(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     const handleSave = async () => {
         const parsed = parseFloat(draftBudget);
@@ -320,6 +321,7 @@ const BudgetStatusCard: React.FC<BudgetStatusCardProps> = ({ category, currentAm
 export default function BudgetPage() {
         const { categories, expenses, incomes, updateCategory } = useData();
         const { addToast } = useToast();
+    const { format, symbol } = useCurrency();
         const [monthOffset, setMonthOffset] = useState(0); // 0 = current month
         const [showIncomeGoals, setShowIncomeGoals] = useState(true);
         const [showAlerts, setShowAlerts] = useState(true);
@@ -347,11 +349,11 @@ export default function BudgetPage() {
         const handleUpdateBudget = useCallback(async (category: Category, newBudget: number) => {
             try {
                 await updateCategory({ ...category, budget: newBudget });
-                addToast(`Budget for ${category.name} updated to $${newBudget}`, 'success');
+                addToast(`Budget for ${category.name} updated to ${format(newBudget, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'success');
             } catch (error) {
                 addToast('Failed to update budget', 'error');
             }
-        }, [updateCategory, addToast]);
+        }, [updateCategory, addToast, format]);
 
         // Calculate historical data for trends (last 6 months)
         const trendData = useMemo(() => {
@@ -433,7 +435,7 @@ export default function BudgetPage() {
                     alerts.push({
                         type: 'danger',
                         category: category.name,
-                        message: `Over budget by $${(currentAmount - category.budget).toFixed(2)}`,
+                        message: `Over budget by ${format(currentAmount - category.budget, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                         icon: <ExclamationTriangleIcon className="w-4 h-4" />
                     });
                 } else if (percentage > 80) {
@@ -710,7 +712,7 @@ export default function BudgetPage() {
                                                             border: '1px solid #374151',
                                                             borderRadius: '8px' 
                                                         }}
-                                                        formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+                                                        formatter={(value: number) => [format(value), '']}
                                                     />
                                                     <Legend />
                                                     <Line type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2} name="Expenses" />
@@ -738,7 +740,7 @@ export default function BudgetPage() {
                                                             border: '1px solid #374151',
                                                             borderRadius: '8px' 
                                                         }}
-                                                        formatter={(value: number) => [`$${value.toLocaleString()}`, 'Spent']}
+                                                        formatter={(value: number) => [format(value), 'Spent']}
                                                     />
                                                     <Bar dataKey="value" fill="#60a5fa" />
                                                     <Bar dataKey="budget" fill="#374151" opacity={0.3} />
@@ -781,7 +783,7 @@ export default function BudgetPage() {
                                             <span className="text-sm font-medium text-brand-text-secondary">Daily Average</span>
                                         </div>
                                         <p className="text-lg font-bold text-brand-text-primary">
-                                            ${(summary.totalSpent / todayInMonth).toFixed(2)}
+                                            {format(summary.totalSpent / todayInMonth, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </p>
                                         <p className="text-xs text-brand-text-secondary">this month</p>
                                     </motion.div>
@@ -824,9 +826,9 @@ export default function BudgetPage() {
                                             <p className="text-sm text-brand-text-secondary">Tracking your budgets for {monthLabel} ({monthProgressPct.toFixed(0)}% through month)</p>
                                         </div>
                                         <div className="flex flex-wrap gap-3 text-xs">
-                                            <div className="px-2 py-1 rounded bg-brand-surface-2 border border-brand-border">Spent: ${summary.totalSpent.toLocaleString()}</div>
-                                            <div className="px-2 py-1 rounded bg-brand-surface-2 border border-brand-border">Budgeted: ${summary.totalBudgeted.toLocaleString()}</div>
-                                            <div className="px-2 py-1 rounded bg-brand-surface-2 border border-brand-border">Forecast: ${summary.forecasted.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                                            <div className="px-2 py-1 rounded bg-brand-surface-2 border border-brand-border">Spent: {format(summary.totalSpent, { maximumFractionDigits: 0, minimumFractionDigits: 0 })}</div>
+                                            <div className="px-2 py-1 rounded bg-brand-surface-2 border border-brand-border">Budgeted: {format(summary.totalBudgeted, { maximumFractionDigits: 0, minimumFractionDigits: 0 })}</div>
+                                            <div className="px-2 py-1 rounded bg-brand-surface-2 border border-brand-border">Forecast: {format(summary.forecasted, { maximumFractionDigits: 0, minimumFractionDigits: 0 })}</div>
                                             {summary.totalEarned > 0 && (
                                                 <div className="px-2 py-1 rounded bg-brand-surface-2 border border-brand-border">Savings Rate: {summary.savingsRate.toFixed(1)}%</div>
                                             )}
@@ -837,28 +839,28 @@ export default function BudgetPage() {
                         <div className="bg-brand-surface-2 p-4 rounded-lg border border-brand-border">
                             <p className="text-sm text-brand-text-secondary">Total Budget</p>
                             <p className="text-xl font-bold text-brand-text-primary">
-                                ${summary.totalBudgeted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {format(summary.totalBudgeted, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
                         </div>
                          <div className="bg-brand-surface-2 p-4 rounded-lg border border-brand-border">
                             <p className="text-sm text-brand-text-secondary">Total Spent</p>
                             <p className="text-xl font-bold text-brand-text-primary">
-                                ${summary.totalSpent.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {format(summary.totalSpent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
                         </div>
                          <div className="bg-brand-surface-2 p-4 rounded-lg border border-brand-border">
                             <p className="text-sm text-brand-text-secondary">Remaining</p>
                             <p className={`text-xl font-bold ${summary.remaining >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                               {summary.remaining < 0 ? '-' : ''}${Math.abs(summary.remaining).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                               {summary.remaining < 0 ? '-' : ''}{format(Math.abs(summary.remaining), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
                         </div>
                                          <div className="bg-brand-surface-2 p-4 rounded-lg border border-brand-border">
                                              <p className="text-sm text-brand-text-secondary">Forecast Spend</p>
-                                             <p className={`text-xl font-bold ${summary.forecastVariance > 5 ? 'text-red-400' : summary.forecastVariance > 0 ? 'text-yellow-400' : 'text-green-400'}`}>${summary.forecasted.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                             <p className={`text-xl font-bold ${summary.forecastVariance > 5 ? 'text-red-400' : summary.forecastVariance > 0 ? 'text-yellow-400' : 'text-green-400'}`}>{format(summary.forecasted, { maximumFractionDigits: 0, minimumFractionDigits: 0 })}</p>
                                          </div>
                                          <div className="bg-brand-surface-2 p-4 rounded-lg border border-brand-border">
                                              <p className="text-sm text-brand-text-secondary">Savings</p>
-                                             <p className="text-xl font-bold text-brand-text-primary">${summary.savings.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                             <p className="text-xl font-bold text-brand-text-primary">{format(summary.savings, { maximumFractionDigits: 0, minimumFractionDigits: 0 })}</p>
                                          </div>
                     </div>
                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -888,7 +890,7 @@ export default function BudgetPage() {
                                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                             ))}
                                                         </Pie>
-                                                        <Tooltip formatter={(v: number) => `$${v.toLocaleString()}`} />
+                                                        <Tooltip formatter={(v: number) => format(v)} />
                                                         <Legend verticalAlign="bottom" height={24} />
                                                     </PieChart>
                                                 </ResponsiveContainer>
