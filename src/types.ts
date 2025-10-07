@@ -22,24 +22,15 @@ export interface Category {
 }
 
 export interface Expense {
-  id: number;
+  id: number;               // Local numeric mapping ID
   amount: number;
   description: string;
-  category: Category;
-  date: string;
-  account?: Account;
+  date: string;             // ISO date string (YYYY-MM-DD)
   paymentMethod: 'Card' | 'Cash' | 'Bank';
-  recurrence?: Recurrence;
-}
-
-export interface Expense {
-  id: number;
-  description: string;
-  amount: number;
-  date: string; // ISO string for simplicity
-  paymentMethod: 'Card' | 'Cash' | 'Bank';
-  category: Category;
-  recurrence?: Recurrence;
+  category: Category;       // Embedded category snapshot (denormalized for UI convenience)
+  recurrence?: Recurrence;  // Optional recurrence definition
+  /** Firestore document ID (string) for stable identification */
+  docId?: string;
 }
 
 export interface Income {

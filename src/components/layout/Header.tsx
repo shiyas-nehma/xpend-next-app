@@ -115,7 +115,7 @@ User input: "${inputValue}"`;
                 addIncome(newTransaction as Income);
                 addToast(`Income of $${result.amount.toFixed(2)} added to ${category.name}!`, 'success');
             } else {
-                addExpense(newTransaction as Expense);
+                await addExpense(newTransaction as Expense);
                 addToast(`Expense of $${result.amount.toFixed(2)} added to ${category.name}!`, 'success');
             }
             setInputValue('');
