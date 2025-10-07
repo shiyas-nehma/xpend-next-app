@@ -1,4 +1,5 @@
-'use client'
+'use client';
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { GoogleGenAI, Chat } from '@google/genai';
 // import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -123,7 +124,9 @@ const AIPage: React.FC = () => {
     const [editingTitleValue, setEditingTitleValue] = useState('');
     const isCancelledRef = useRef(false);
 
-    const ai = useMemo(() => new GoogleGenAI({ apiKey: process.env.API_KEY as string }), []);
+    //const ai = useMemo(() => new GoogleGenAI({ apiKey: process.env.API_KEY as string }), []);
+      const ai = useMemo(() => new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY as string }), []);
+    
     const [chat, setChat] = useState<Chat | null>(null);
 
     const activeChat = useMemo(() => chatSessions.find(s => s.id === activeChatId), [chatSessions, activeChatId]);
@@ -251,7 +254,9 @@ const AIPage: React.FC = () => {
 
     const generateTitle = async (userMessage: string, modelResponse: string): Promise<string> => {
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            //const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+             const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY as string });
+
             const response = await ai.models.generateContent({
                 model: "gemini-2.5-flash",
                 contents: `Based on this conversation, create a short, descriptive title (max 5 words).\n\nUSER: ${userMessage}\nMODEL: ${modelResponse}`,
