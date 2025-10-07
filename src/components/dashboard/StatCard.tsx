@@ -27,6 +27,17 @@ const AIAssistantCard: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const { incomes, expenses } = useData();
 
+    // Local fallback summary generator (non-AI heuristic)
+    const buildLocalSummary = (totalIncome: number, totalExpense: number, topCategoriesList: Array<[string, number]>) => {
+        const net = totalIncome - totalExpense;
+        const trend = net >= 0 ? 'surplus' : 'deficit';
+        const top = topCategoriesList.slice(0, 2).map(([n, v]) => `${n} ($${v.toFixed(0)})`).join(', ');
+        const topSentence = top ? ` Top spend: ${top}.` : '';
+        const savingsRate = totalIncome > 0 ? (net / totalIncome) * 100 : 0;
+        const savingsPart = totalIncome > 0 ? ` Savings rate ~${savingsRate.toFixed(1)}%.` : '';
+        return `**Local Insight (AI disabled)**: You're running a ${trend} of $${Math.abs(net).toFixed(0)} (income $${totalIncome.toFixed(0)} vs expenses $${totalExpense.toFixed(0)}).${topSentence}${savingsPart}`;
+    };
+
     const generateSummary = useCallback(async () => {
         setIsLoading(true);
         setError(null);
@@ -53,39 +64,53 @@ const AIAssistantCard: React.FC = () => {
                 return acc as Record<string, number>;
             }, {} as Record<string, number>);
 
-            const topCategories = Object.entries(expenseByCategory)
-                .sort(([, a], [, b]) => b - a)
+            const topCategoriesArray = Object.entries(expenseByCategory)
+                .sort(([, a], [, b]) => b - a);
+            const topCategories = topCategoriesArray
                 .slice(0, 3)
                 .map(([name, amount]) => `${name}: $${amount.toFixed(2)}`)
                 .join(', ');
-            
-            const prompt = `
-            You are a financial assistant for the Equota dashboard.
-            Analyze the following financial data for the current month and provide a short, insightful summary (2-3 sentences) for the user.
-            Highlight the most important trend or action item. Use markdown for emphasis (e.g., **bold** for key phrases).
-            Do not greet the user. Start directly with the analysis.
 
-            Data:
-            - Total Income: $${totalIncome.toFixed(2)}
-            - Total Expenses: $${totalExpense.toFixed(2)}
-            - Net Flow: $${(totalIncome - totalExpense).toFixed(2)}
-            - Top Spending Categories: ${topCategories || 'None'}
-            `;
-
-            const ai = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GOOGLE_API_KEY as string);
-            const model = ai.getGenerativeModel({ model: 'gemini-pro' });
-            const response = await model.generateContent(prompt);
-            
-            setSummary(response.response.text());
-
-        } catch (e: any) {
-            console.error("AI summary generation failed:", e);
-            let errorMessage = "Failed to generate AI summary. Please try again.";
-            // A simple check for rate limit errors, which often include status 429.
-            if (e && e.toString && e.toString().includes('429')) {
-                errorMessage = "AI assistant is busy. Please try refreshing in a moment.";
+            const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+            if (!apiKey) {
+                // Fallback immediately if no API key configured
+                setSummary(buildLocalSummary(totalIncome, totalExpense, topCategoriesArray));
+                return;
             }
-            setError(errorMessage);
+
+            const prompt = `You are a financial assistant for the Equota dashboard.\n` +
+                `Analyze the following financial data for the current month and provide a short, insightful summary (2-3 sentences) for the user.\n` +
+                `Highlight the most important trend or action item. Use markdown for emphasis (e.g., **bold** for key phrases).\n` +
+                `Do not greet the user. Start directly with the analysis.\n\n` +
+                `Data:\n` +
+                `- Total Income: $${totalIncome.toFixed(2)}\n` +
+                `- Total Expenses: $${totalExpense.toFixed(2)}\n` +
+                `- Net Flow: $${(totalIncome - totalExpense).toFixed(2)}\n` +
+                `- Top Spending Categories: ${topCategories || 'None'}\n`;
+
+            try {
+                const ai = new GoogleGenerativeAI(apiKey);
+                const model = ai.getGenerativeModel({ model: 'gemini-pro' });
+                const response = await model.generateContent(prompt);
+                setSummary(response.response.text());
+            } catch (apiErr: any) {
+                // Specific fallback for invalid key or 400/403 errors
+                const msg = apiErr?.message || apiErr?.toString?.() || '';
+                if (/API key not valid|API_KEY_INVALID|403|400/.test(msg)) {
+                    console.warn('Invalid or missing Google API key. Using local heuristic summary.');
+                    setSummary(buildLocalSummary(totalIncome, totalExpense, topCategoriesArray));
+                    return;
+                }
+                if (msg.includes('429')) {
+                    setError('AI assistant is busy (rate limited). Please refresh shortly.');
+                } else {
+                    setError('AI service error. Showing local summary.');
+                    setSummary(buildLocalSummary(totalIncome, totalExpense, topCategoriesArray));
+                }
+            }
+        } catch (e: any) {
+            console.error('AI summary generation failed (outer):', e);
+            setError('Failed to generate summary.');
         } finally {
             setIsLoading(false);
         }
