@@ -112,7 +112,7 @@ User input: "${inputValue}"`;
             };
 
             if (result.type === 'income') {
-                addIncome(newTransaction as Income);
+                await addIncome(newTransaction as Income);
                 addToast(`Income of $${result.amount.toFixed(2)} added to ${category.name}!`, 'success');
             } else {
                 await addExpense(newTransaction as Expense);

@@ -2,9 +2,9 @@
 
 import React, { createContext, useState, ReactNode, useCallback, useMemo } from 'react';
 import type { Income, Expense, Category } from '@/types';
-import { mockIncomes } from '@/data/mockData';
 import { useCategories } from '@/hooks/useCategories';
 import { useExpenses } from '@/hooks/useExpenses';
+import { useIncomes } from '@/hooks/useIncomes';
 
 interface DataContextType {
   incomes: Income[];
@@ -14,9 +14,11 @@ interface DataContextType {
   categoriesError: string | null;
   expensesLoading: boolean;
   expensesError: string | null;
-  addIncome: (income: Income) => void;
-  updateIncome: (income: Income) => void;
-  deleteIncome: (id: number) => void;
+  incomesLoading: boolean;
+  incomesError: string | null;
+  addIncome: (income: Omit<Income, 'id' | 'docId'> | Income) => Promise<Income> | void; // Promise for async create
+  updateIncome: (income: Income) => Promise<void> | void;
+  deleteIncome: (id: number) => Promise<void> | void;
   addExpense: (expense: Omit<Expense, 'id' | 'docId'> | Expense) => Promise<Expense> | void; // Promise for async create
   updateExpense: (expense: Expense) => Promise<void> | void;
   deleteExpense: (id: number) => Promise<void> | void;
@@ -35,13 +37,12 @@ interface DataContextType {
   };
   refreshCategories: () => Promise<void>;
   refreshExpenses: () => Promise<void>;
+  refreshIncomes: () => Promise<void>;
 }
 
 export const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [incomes, setIncomes] = useState<Income[]>(mockIncomes);
-  
   // Use Firebase-integrated categories hook
   const {
     categories,
@@ -67,17 +68,31 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     refreshExpenses,
   } = useExpenses(categories);
 
-  const addIncome = useCallback((income: Income) => {
-    setIncomes(prev => [income, ...prev]);
-  }, []);
+  // Incomes Firestore hook (depends on categories for category resolution)
+  const {
+    incomes,
+    loading: incomesLoading,
+    error: incomesError,
+    addIncome: addIncomeAsync,
+    updateIncome: updateIncomeAsync,
+    deleteIncome: deleteIncomeAsync,
+    refreshIncomes,
+  } = useIncomes(categories);
 
-  const updateIncome = useCallback((updatedIncome: Income) => {
-    setIncomes(prev => prev.map(i => i.id === updatedIncome.id ? updatedIncome : i));
-  }, []);
+  // Wrap async income operations so existing UI that doesn't await still works
+  const addIncome = useCallback((income: Omit<Income, 'id' | 'docId'> | Income) => {
+    // Normalize payload removing any provided id (Firestore will issue its own)
+    const { id: _ignoreId, docId: _ignoreDoc, ...rest } = income as Income;
+    return addIncomeAsync(rest as Omit<Income, 'id' | 'docId'>);
+  }, [addIncomeAsync]);
+
+  const updateIncome = useCallback((income: Income) => {
+    return updateIncomeAsync(income);
+  }, [updateIncomeAsync]);
 
   const deleteIncome = useCallback((id: number) => {
-    setIncomes(prev => prev.filter(i => i.id !== id));
-  }, []);
+    return deleteIncomeAsync(id);
+  }, [deleteIncomeAsync]);
 
   // Wrap async expense operations so existing UI that doesn't await still works
   const addExpense = useCallback((expense: Omit<Expense, 'id' | 'docId'> | Expense) => {
@@ -102,6 +117,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     categoriesError,
     expensesLoading,
     expensesError,
+    incomesLoading,
+    incomesError,
     addIncome,
     updateIncome,
     deleteIncome,
@@ -116,19 +133,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     getCategoryStats,
     refreshCategories,
     refreshExpenses,
+    refreshIncomes,
   }), [
-    incomes, 
+    incomes,
     expenses,
     categories,
     categoriesLoading,
     categoriesError,
     expensesLoading,
     expensesError,
-    addIncome, 
-    updateIncome, 
-    deleteIncome, 
-    addExpense, 
-    updateExpense, 
+    incomesLoading,
+    incomesError,
+    addIncome,
+    updateIncome,
+    deleteIncome,
+    addExpense,
+    updateExpense,
     deleteExpense,
     addCategoryToFirebase,
     updateCategoryInFirebase,
@@ -138,9 +158,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     getCategoryStats,
     refreshCategories,
     refreshExpenses,
-  ]);
-
-  return (
+    refreshIncomes,
+  ]);  return (
     <DataContext.Provider value={value}>
       {children}
     </DataContext.Provider>

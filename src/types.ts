@@ -34,12 +34,15 @@ export interface Expense {
 }
 
 export interface Income {
-  id: number;
+  id: number;               // Local numeric mapping ID
   amount: number;
   description: string;
-  category: Category;
-  date: string;
-  account?: Account;
+  date: string;             // ISO date string (YYYY-MM-DD)
+  paymentMethod: 'Card' | 'Cash' | 'Bank';
+  category: Category;       // Embedded category snapshot (denormalized for UI convenience)
+  recurrence?: Recurrence;  // Optional recurrence definition
+  /** Firestore document ID (string) for stable identification */
+  docId?: string;
 }
 
 export interface Goal {

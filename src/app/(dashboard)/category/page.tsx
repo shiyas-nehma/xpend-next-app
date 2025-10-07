@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon } from '@/components/icons/NavIcons';
+import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, ChevronRightIcon } from '@/components/icons/NavIcons';
 import CategoryModal from '@/components/category/CategoryModal';
 import ConfirmationModal from '@/components/common/ConfirmationModal';
 import EmptyState from '@/components/common/EmptyState';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import EmptyStateIcon from '@/components/icons/EmptyStateIcon';
-import type { Category } from '@/types';
+import type { Category, Expense, Income } from '@/types';
 import { useToast } from '@/hooks/useToast';
 import { useData } from '@/hooks/useData';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -95,14 +95,54 @@ const getBudgetStatus = (amount: number, budget: number, type: 'Expense' | 'Inco
 }
 
 // Category Stats Card Component
-const CategoryStatsCard: React.FC<{ categories: Category[] }> = ({ categories }) => {
+const CategoryStatsCard: React.FC<{ 
+  categories: Category[]; 
+  expenses: any[]; 
+  incomes: any[];
+}> = ({ categories, expenses, incomes }) => {
   const stats = React.useMemo(() => {
     const expenseCategories = categories.filter(c => c.type === 'Expense');
     const incomeCategories = categories.filter(c => c.type === 'Income');
     
+    // Calculate actual amounts from transactions
+    const categoryAmounts = new Map<string, { amount: number; transactions: number }>();
+    
+    // Process expenses
+    expenses.forEach(expense => {
+      const categoryKey = expense.category.docId || expense.category.id.toString();
+      const current = categoryAmounts.get(categoryKey) || { amount: 0, transactions: 0 };
+      categoryAmounts.set(categoryKey, {
+        amount: current.amount + expense.amount,
+        transactions: current.transactions + 1
+      });
+    });
+    
+    // Process incomes
+    incomes.forEach(income => {
+      const categoryKey = income.category.docId || income.category.id.toString();
+      const current = categoryAmounts.get(categoryKey) || { amount: 0, transactions: 0 };
+      categoryAmounts.set(categoryKey, {
+        amount: current.amount + income.amount,
+        transactions: current.transactions + 1
+      });
+    });
+    
     const totalBudget = expenseCategories.reduce((sum, c) => sum + (c.budget || 0), 0);
-    const totalSpent = expenseCategories.reduce((sum, c) => sum + (c.amount || 0), 0);
-    const totalEarned = incomeCategories.reduce((sum, c) => sum + (c.amount || 0), 0);
+    
+    // Calculate actual spent from expense transactions
+    const totalSpent = expenseCategories.reduce((sum, c) => {
+      const categoryKey = c.docId || c.id.toString();
+      const categoryData = categoryAmounts.get(categoryKey);
+      return sum + (categoryData?.amount || 0);
+    }, 0);
+    
+    // Calculate actual earned from income transactions
+    const totalEarned = incomeCategories.reduce((sum, c) => {
+      const categoryKey = c.docId || c.id.toString();
+      const categoryData = categoryAmounts.get(categoryKey);
+      return sum + (categoryData?.amount || 0);
+    }, 0);
+    
     const budgetUtilization = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
     
     return {
@@ -112,9 +152,10 @@ const CategoryStatsCard: React.FC<{ categories: Category[] }> = ({ categories })
       totalSpent,
       totalEarned,
       budgetUtilization,
-      remainingBudget: totalBudget - totalSpent
+      remainingBudget: totalBudget - totalSpent,
+      totalTransactions: expenses.length + incomes.length
     };
-  }, [categories]);
+  }, [categories, expenses, incomes]);
 
   return (
     <motion.div 
@@ -129,7 +170,7 @@ const CategoryStatsCard: React.FC<{ categories: Category[] }> = ({ categories })
         transition: { duration: 0.2 }
       }}
     >
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -211,7 +252,112 @@ const CategoryStatsCard: React.FC<{ categories: Category[] }> = ({ categories })
             {stats.remainingBudget >= 0 ? 'Under budget' : 'Over budget'}
           </p>
         </motion.div>
+        
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.6 }}
+          whileHover={{ scale: 1.05 }}
+        >
+          <h3 className="text-sm font-medium text-brand-text-secondary mb-1">Transactions</h3>
+          <motion.p 
+            className="text-2xl font-bold text-brand-blue"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.8, duration: 0.5, type: "spring" }}
+            key={stats.totalTransactions}
+          >
+            {stats.totalTransactions}
+          </motion.p>
+          <p className="text-xs text-brand-text-secondary">This month</p>
+        </motion.div>
       </div>
+    </motion.div>
+  );
+};
+
+// Recent Transactions Component for Category
+const CategoryTransactions: React.FC<{
+  category: Category;
+  expenses: Expense[];
+  incomes: Income[];
+  isVisible: boolean;
+}> = ({ category, expenses, incomes, isVisible }) => {
+  const categoryTransactions = React.useMemo(() => {
+    const categoryKey = category.docId || category.id.toString();
+    
+    const relatedExpenses = expenses
+      .filter(e => (e.category.docId || e.category.id.toString()) === categoryKey)
+      .map(e => ({ ...e, type: 'expense' as const }));
+    
+    const relatedIncomes = incomes
+      .filter(i => (i.category.docId || i.category.id.toString()) === categoryKey)
+      .map(i => ({ ...i, type: 'income' as const }));
+    
+    return [...relatedExpenses, ...relatedIncomes]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5); // Show only last 5 transactions
+  }, [category, expenses, incomes]);
+
+  if (!isVisible || categoryTransactions.length === 0) return null;
+
+  return (
+    <motion.div
+      className="mt-4 pt-4 border-t border-brand-border"
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <h4 className="text-xs font-semibold text-brand-text-secondary mb-3 flex items-center gap-2">
+        Recent Transactions 
+        <span className="bg-brand-surface-2 px-2 py-0.5 rounded-full text-xs">
+          {categoryTransactions.length}
+        </span>
+      </h4>
+      <div className="space-y-2">
+        {categoryTransactions.map((transaction, index) => (
+          <motion.div
+            key={`${transaction.type}-${transaction.id}`}
+            className="flex items-center justify-between text-xs"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.05 }}
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-brand-text-primary truncate font-medium">
+                {transaction.description}
+              </p>
+              <p className="text-brand-text-secondary">
+                {new Date(transaction.date).toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric' 
+                })}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className={`font-semibold ${
+                transaction.type === 'expense' ? 'text-red-400' : 'text-green-400'
+              }`}>
+                {transaction.type === 'expense' ? '-' : '+'}$
+                {transaction.amount.toLocaleString('en-US', { 
+                  minimumFractionDigits: 2, 
+                  maximumFractionDigits: 2 
+                })}
+              </p>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+      {categoryTransactions.length >= 5 && (
+        <motion.button
+          className="w-full mt-3 text-xs text-brand-blue hover:text-blue-400 transition-colors flex items-center justify-center gap-1"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          View All <ChevronRightIcon className="w-3 h-3" />
+        </motion.button>
+      )}
     </motion.div>
   );
 };
@@ -221,6 +367,10 @@ export default function CategoryPage() {
     categories, 
     categoriesLoading,
     categoriesError,
+    expenses,
+    incomes,
+    expensesLoading,
+    incomesLoading,
     addCategory, 
     updateCategory, 
     deleteCategory,
@@ -237,6 +387,7 @@ export default function CategoryPage() {
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
   const [activeFilter, setActiveFilter] = useState<'All' | 'Expense' | 'Income'>('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedCategory, setExpandedCategory] = useState<number | null>(null);
   const { addToast } = useToast();
 
   const handleAddNew = () => {
@@ -313,6 +464,33 @@ export default function CategoryPage() {
   };
 
   const categoryToDelete = categories.find(c => c.id === deletingCategoryId);
+
+  // Calculate actual category data from transactions
+  const categoryData = React.useMemo(() => {
+    const data = new Map<string, { amount: number; transactions: number }>();
+    
+    // Process expenses
+    expenses.forEach(expense => {
+      const categoryKey = expense.category.docId || expense.category.id.toString();
+      const current = data.get(categoryKey) || { amount: 0, transactions: 0 };
+      data.set(categoryKey, {
+        amount: current.amount + expense.amount,
+        transactions: current.transactions + 1
+      });
+    });
+    
+    // Process incomes
+    incomes.forEach(income => {
+      const categoryKey = income.category.docId || income.category.id.toString();
+      const current = data.get(categoryKey) || { amount: 0, transactions: 0 };
+      data.set(categoryKey, {
+        amount: current.amount + income.amount,
+        transactions: current.transactions + 1
+      });
+    });
+    
+    return data;
+  }, [expenses, incomes]);
 
   const filteredCategories = categories
     .filter(category => {
@@ -443,11 +621,15 @@ export default function CategoryPage() {
 
         {/* Category Stats Card */}
         {!categoriesLoading && categories.length > 0 && (
-          <CategoryStatsCard categories={categories} />
+          <CategoryStatsCard 
+            categories={categories} 
+            expenses={expenses || []} 
+            incomes={incomes || []} 
+          />
         )}
 
         <div className="flex-grow">
-          {categoriesLoading ? (
+          {categoriesLoading || expensesLoading || incomesLoading ? (
             <motion.div 
               className="flex items-center justify-center h-64"
               initial={{ opacity: 0, scale: 0.8 }}
@@ -455,7 +637,9 @@ export default function CategoryPage() {
               transition={{ duration: 0.5 }}
             >
               <LoadingSpinner size="large" />
-              <span className="ml-3 text-brand-text-secondary">Loading categories...</span>
+              <span className="ml-3 text-brand-text-secondary">
+                Loading {categoriesLoading ? 'categories' : expensesLoading ? 'expenses' : 'incomes'}...
+              </span>
             </motion.div>
           ) : categoriesError ? (
             <motion.div
@@ -545,13 +729,17 @@ export default function CategoryPage() {
             >
               <AnimatePresence mode="popLayout">
                 {dedupedCategories.map((category) => {
-                  const budgetStatus = getBudgetStatus(category.amount, category.budget, category.type);
-                  const progressPercentage = category.budget > 0 ? Math.min((category.amount / category.budget) * 100, 100) : 0;
+                  // Get actual transaction data for this category
+                  const categoryKey = category.docId || category.id.toString();
+                  const actualData = categoryData.get(categoryKey) || { amount: 0, transactions: 0 };
+                  
+                  const budgetStatus = getBudgetStatus(actualData.amount, category.budget, category.type);
+                  const progressPercentage = category.budget > 0 ? Math.min((actualData.amount / category.budget) * 100, 100) : 0;
                   
                   return (
                       <motion.div 
                         key={category.docId ? category.docId : `cat-${category.id}-${category.name}`} 
-                        className={`group relative p-5 bg-brand-surface rounded-2xl border border-brand-border flex flex-col
+                        className={`group relative p-5 bg-brand-surface rounded-2xl border border-brand-border flex flex-col cursor-pointer
                             ${highlightedId === category.id ? 'animate-highlight' : ''}`}
                         variants={itemVariants}
                         initial="hidden"
@@ -574,6 +762,9 @@ export default function CategoryPage() {
                         }}
                         layout
                         layoutId={`category-${category.id}`}
+                        onClick={() => setExpandedCategory(
+                          expandedCategory === category.id ? null : category.id
+                        )}
                       >
                         {/* Top Content */}
                         <motion.div
@@ -611,24 +802,30 @@ export default function CategoryPage() {
                                   transition={{ duration: 0.2 }}
                                 >
                                     <motion.button 
-                                      onClick={() => handleEdit(category)} 
                                       className="p-1.5 text-brand-text-secondary hover:text-brand-text-primary hover:bg-brand-border transition-colors" 
                                       title={`Edit ${category.name}`} 
                                       aria-label={`Edit ${category.name} category`}
                                       whileHover={{ scale: 1.1, backgroundColor: "rgba(59, 130, 246, 0.1)" }}
                                       whileTap={{ scale: 0.95 }}
                                       transition={{ type: "spring", stiffness: 400 }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEdit(category);
+                                      }}
                                     >
                                       <PencilIcon className="w-4 h-4" />
                                     </motion.button>
                                     <motion.button 
-                                      onClick={() => handleDeleteRequest(category.id)} 
                                       className="p-1.5 text-brand-text-secondary hover:text-red-400 hover:bg-brand-border transition-colors border-l border-brand-border" 
                                       title={`Delete ${category.name}`} 
                                       aria-label={`Delete ${category.name} category`}
                                       whileHover={{ scale: 1.1, backgroundColor: "rgba(239, 68, 68, 0.1)" }}
                                       whileTap={{ scale: 0.95 }}
                                       transition={{ type: "spring", stiffness: 400 }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteRequest(category.id);
+                                      }}
                                     >
                                       <TrashIcon className="w-4 h-4" />
                                     </motion.button>
@@ -644,14 +841,33 @@ export default function CategoryPage() {
                                 <motion.p 
                                   className="text-2xl font-bold text-brand-text-primary"
                                   whileHover={{ scale: 1.05 }}
-                                  key={category.amount}
+                                  key={actualData.amount}
                                   initial={{ opacity: 0, scale: 0.8 }}
                                   animate={{ opacity: 1, scale: 1 }}
                                   transition={{ type: "spring", stiffness: 400 }}
                                 >
-                                  ${category.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  ${actualData.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </motion.p>
-                                <p className="text-sm text-brand-text-secondary">{category.transactions} transactions this month</p>
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm text-brand-text-secondary">
+                                    {actualData.transactions} transactions this month
+                                  </p>
+                                  {actualData.transactions > 0 && (
+                                    <motion.span 
+                                      className="text-xs text-brand-blue flex items-center gap-1"
+                                      initial={{ opacity: 0, x: 10 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      transition={{ delay: 0.2 }}
+                                    >
+                                      {expandedCategory === category.id ? 'Hide' : 'View'} details
+                                      <ChevronRightIcon 
+                                        className={`w-3 h-3 transition-transform ${
+                                          expandedCategory === category.id ? 'rotate-90' : ''
+                                        }`} 
+                                      />
+                                    </motion.span>
+                                  )}
+                                </div>
                             </motion.div>
 
                             {category.description && (
@@ -679,12 +895,12 @@ export default function CategoryPage() {
                                         <span className="text-brand-text-secondary font-medium">{category.type === 'Expense' ? 'Budget' : 'Goal'}</span>
                                         <motion.span 
                                           className={`font-semibold ${budgetStatus.color}`}
-                                          key={`${category.amount}-${category.budget}`}
+                                          key={`${actualData.amount}-${category.budget}`}
                                           initial={{ opacity: 0, y: 5 }}
                                           animate={{ opacity: 1, y: 0 }}
                                           transition={{ duration: 0.3 }}
                                         >
-                                            ${Math.round(category.amount)} / ${category.budget}
+                                            ${Math.round(actualData.amount)} / ${category.budget}
                                         </motion.span>
                                     </div>
                                     <div className="w-full bg-brand-surface-2 rounded-full h-2 overflow-hidden">
@@ -704,6 +920,14 @@ export default function CategoryPage() {
                                 </div>
                             )}
                         </motion.div>
+
+                        {/* Recent Transactions */}
+                        <CategoryTransactions 
+                          category={category}
+                          expenses={expenses || []}
+                          incomes={incomes || []}
+                          isVisible={expandedCategory === category.id}
+                        />
                     </motion.div>
                   )
                 })}
