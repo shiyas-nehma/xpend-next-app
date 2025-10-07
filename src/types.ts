@@ -47,12 +47,16 @@ export interface Income {
 
 export interface Goal {
   id: number;
-  name: string;
-  target: number;
-  current: number;
-  deadline: string;
-  description?: string;
-  icon?: string;
+  title: string;              // Display title
+  description: string;        // Longer description
+  progress: number;           // 0-100
+  priority: 'High' | 'Medium' | 'Low';
+  status: 'Active' | 'Paused' | 'Completed';
+  deadline: string | null;    // ISO date string or null
+  tags: string[];             // Related tags
+  target?: number;            // Optional numeric target
+  current?: number;           // Optional current value
+  icon?: string;              // Optional icon ref
 }
 
 export interface Message {
@@ -64,7 +68,7 @@ export interface ChatSession {
   id: string;
   title: string;
   messages: Message[];
-  timestamp: number;
+  timestamp?: number; // optional for backward compatibility with stored sessions
 }
 
 export interface BlogPost {
@@ -122,10 +126,6 @@ export interface Message {
   content: string;
 }
 
-export interface ChatSession {
-  id: string;
-  title: string;
-  messages: Message[];
-}
+// (Duplicate ChatSession removed above)
 
 

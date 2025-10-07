@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronDownIcon, InfoIcon, RefreshIcon } from '@/components/icons/NavIcons';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+// Removed direct GoogleGenerativeAI import to avoid exposing API key. Uses /api/ai/chat now.
 import { useData } from '@/hooks/useData';
 import FormattedMessageContent from '@/components/common/FormattedMessageContent';
 
@@ -71,43 +71,33 @@ const AIAssistantCard: React.FC = () => {
                 .map(([name, amount]) => `${name}: $${amount.toFixed(2)}`)
                 .join(', ');
 
-            const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
-            if (!apiKey) {
-                // Fallback immediately if no API key configured
-                setSummary(buildLocalSummary(totalIncome, totalExpense, topCategoriesArray));
-                return;
-            }
+                        const prompt = `Provide a concise 2-3 sentence financial insight summary. Emphasize one actionable point.\n` +
+                            `Data: Total Income $${totalIncome.toFixed(2)}, Total Expenses $${totalExpense.toFixed(2)}, Net Flow $${(totalIncome - totalExpense).toFixed(2)}, Top Categories: ${topCategories || 'None'}`;
 
-            const prompt = `You are a financial assistant for the Equota dashboard.\n` +
-                `Analyze the following financial data for the current month and provide a short, insightful summary (2-3 sentences) for the user.\n` +
-                `Highlight the most important trend or action item. Use markdown for emphasis (e.g., **bold** for key phrases).\n` +
-                `Do not greet the user. Start directly with the analysis.\n\n` +
-                `Data:\n` +
-                `- Total Income: $${totalIncome.toFixed(2)}\n` +
-                `- Total Expenses: $${totalExpense.toFixed(2)}\n` +
-                `- Net Flow: $${(totalIncome - totalExpense).toFixed(2)}\n` +
-                `- Top Spending Categories: ${topCategories || 'None'}\n`;
-
-            try {
-                const ai = new GoogleGenerativeAI(apiKey);
-                const model = ai.getGenerativeModel({ model: 'gemini-pro' });
-                const response = await model.generateContent(prompt);
-                setSummary(response.response.text());
-            } catch (apiErr: any) {
-                // Specific fallback for invalid key or 400/403 errors
-                const msg = apiErr?.message || apiErr?.toString?.() || '';
-                if (/API key not valid|API_KEY_INVALID|403|400/.test(msg)) {
-                    console.warn('Invalid or missing Google API key. Using local heuristic summary.');
-                    setSummary(buildLocalSummary(totalIncome, totalExpense, topCategoriesArray));
-                    return;
-                }
-                if (msg.includes('429')) {
-                    setError('AI assistant is busy (rate limited). Please refresh shortly.');
-                } else {
-                    setError('AI service error. Showing local summary.');
-                    setSummary(buildLocalSummary(totalIncome, totalExpense, topCategoriesArray));
-                }
-            }
+                        try {
+                            const res = await fetch('/api/ai/chat', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ message: prompt, history: [] })
+                            });
+                            if (!res.ok) {
+                                if (res.status === 500) {
+                                    setSummary(buildLocalSummary(totalIncome, totalExpense, topCategoriesArray));
+                                    return;
+                                }
+                                throw new Error('Failed AI request');
+                            }
+                            const data = await res.json();
+                            const text = (data.text as string || '').trim();
+                            if (!text) {
+                                setSummary(buildLocalSummary(totalIncome, totalExpense, topCategoriesArray));
+                            } else {
+                                setSummary(text);
+                            }
+                        } catch (apiErr: any) {
+                            console.warn('AI summary failed, falling back to local summary:', apiErr);
+                            setSummary(buildLocalSummary(totalIncome, totalExpense, topCategoriesArray));
+                        }
         } catch (e: any) {
             console.error('AI summary generation failed (outer):', e);
             setError('Failed to generate summary.');

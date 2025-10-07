@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+// Removed direct GoogleGenerativeAI import; using server API route /api/ai/chat.
 import { 
     PlusIcon, 
     BellIcon, 
@@ -68,24 +68,21 @@ const QuickAddBar: React.FC = () => {
 
         setIsLoading(true);
         try {
-            const ai = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GOOGLE_API_KEY as string);
-            const model = ai.getGenerativeModel({ model: 'gemini-pro' });
-            
-            const prompt = `Parse the following shorthand transaction and return a JSON object. The format is generally '[type] [amount] [description] #[category]'. 'exp' means expense, 'inc' means income. If type is omitted, assume expense. Find the single most relevant category name from the text provided after the '#'. The description is the text between the amount and the category tag. 
+                        const prompt = `Parse the following shorthand financial transaction. Format: '[type] [amount] [description] #[category]'.\n` +
+                            `Rules: type is 'exp' (expense) or 'inc' (income); if omitted assume expense. Return ONLY raw JSON (no markdown fences).\n` +
+                            `Schema: { "type": "income"|"expense", "amount": number, "description": string, "categoryName": string }\n` +
+                            `Input: ${inputValue}`;
 
-Return only a JSON object with this structure:
-{
-  "type": "income" or "expense",
-  "amount": number,
-  "description": "string",
-  "categoryName": "string"
-}
-
-User input: "${inputValue}"`;
-
-            const response = await model.generateContent(prompt);
-            const responseText = response.response.text();
-            const result = JSON.parse(responseText.replace(/```json\n?/g, '').replace(/```\n?/g, ''));
+                        const res = await fetch('/api/ai/chat', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ message: prompt, history: [] })
+                        });
+                        if (!res.ok) throw new Error('AI parse failed');
+                        const data = await res.json();
+                        const text: string = data.text || '';
+                        const cleaned = text.replace(/```json\n?/gi, '').replace(/```/g, '').trim();
+                        const result = JSON.parse(cleaned);
 
             if (!result.amount || !result.description || !result.categoryName) {
                 throw new Error("AI could not parse the transaction. Please be more specific.");

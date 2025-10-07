@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { GoogleGenAI, Chat } from '@google/genai';
+// Removed direct Gemini SDK import; using server API route /api/ai/chat.
 // import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Message, ChatSession } from '@/types';
 import { AIIcon, UserCircleIcon, StopSquareIcon, PlusIcon, ChatBubbleLeftIcon, TrashIcon, PencilIcon, ClipboardIcon, RefreshIcon } from '@/components/icons/NavIcons';
@@ -124,10 +124,7 @@ const AIPage: React.FC = () => {
     const [editingTitleValue, setEditingTitleValue] = useState('');
     const isCancelledRef = useRef(false);
 
-    //const ai = useMemo(() => new GoogleGenAI({ apiKey: process.env.API_KEY as string }), []);
-      const ai = useMemo(() => new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY as string }), []);
-    
-    const [chat, setChat] = useState<Chat | null>(null);
+        const [chatHistory, setChatHistory] = useState<Message[]>([]);
 
     const activeChat = useMemo(() => chatSessions.find(s => s.id === activeChatId), [chatSessions, activeChatId]);
 
@@ -157,30 +154,18 @@ const AIPage: React.FC = () => {
     // Effect to sync the chat object with the active session
     useEffect(() => {
         if (activeChat) {
-            const chatHistory = activeChat.messages
-                .slice(1) // Remove initial system "Hello" message
-                .filter(m => m.content) // Ensure no empty content messages are in history
-                .map(m => ({
-                    role: m.role,
-                    parts: [{ text: m.content }],
-                }));
-
-            const newChat = ai.chats.create({
-                model: 'gemini-2.5-flash',
-                config: { systemInstruction: 'You are a specialized financial assistant for the Equota Admin Panel. Your capabilities are strictly limited to analyzing and answering questions about the user\'s financial data (income, expenses, budgets, categories) as presented within this application. You must decline any requests that are not directly related to this financial data, including but not limited to general knowledge questions, creative writing, or personal advice. If a user asks an off-topic question, you must politely state your purpose and guide them back to financial topics. For all financial answers, provide concise and clear information. Use the following markdown formats to highlight key data points: wrap important phrases in double asterisks like **this**, format currency as $1,234.56, positive percentages as +12.5%, and negative percentages as -5.2%.' },
-                history: chatHistory,
-            });
-            setChat(newChat);
+            setChatHistory(activeChat.messages.slice(1));
         } else {
-            setChat(null);
+            setChatHistory([]);
         }
-    }, [activeChat, ai]);
+    }, [activeChat]);
 
     const handleNewChat = () => {
         const newChat: ChatSession = {
             id: Date.now().toString(),
             title: 'New Chat',
             messages: [initialMessage],
+            timestamp: Date.now()
         };
         setChatSessions(prev => [newChat, ...prev]);
         setActiveChatId(newChat.id);
@@ -253,42 +238,24 @@ const AIPage: React.FC = () => {
     };
 
     const generateTitle = async (userMessage: string, modelResponse: string): Promise<string> => {
-        try {
-            //const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-             const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY as string });
-
-            const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: `Based on this conversation, create a short, descriptive title (max 5 words).\n\nUSER: ${userMessage}\nMODEL: ${modelResponse}`,
-            });
-            return response.text.trim().replace(/["'*]/g, '');
-        } catch (e) {
-            console.error("Title generation failed:", e);
-            return "Untitled Chat";
-        }
+        const combined = (userMessage + ' ' + modelResponse).slice(0, 120);
+        const keywords = combined.split(/[^a-zA-Z0-9$%]+/).filter(Boolean).slice(0, 5);
+        return (keywords.join(' ') || 'Untitled Chat').replace(/["'*]/g, '');
     };
     
     const handleSendMessage = async (messageContent: string) => {
         if (isLoading || !messageContent.trim()) return;
         
         let currentChatId = activeChatId;
-        let currentChatInstance = chat;
         let isFirstUserMessage = activeChat?.messages.length === 1;
 
         // If no active chat, create a new one
-        if (!currentChatId || !currentChatInstance) {
-            const newChatSession: ChatSession = { id: Date.now().toString(), title: "New Chat", messages: [initialMessage] };
+        if (!currentChatId) {
+            const newChatSession: ChatSession = { id: Date.now().toString(), title: "New Chat", messages: [initialMessage], timestamp: Date.now() };
             setChatSessions(prev => [newChatSession, ...prev]);
             currentChatId = newChatSession.id;
             setActiveChatId(newChatSession.id);
             isFirstUserMessage = true;
-
-            currentChatInstance = ai.chats.create({
-                model: 'gemini-2.5-flash',
-                config: { systemInstruction: 'You are a specialized financial assistant for the Equota Admin Panel. Your capabilities are strictly limited to analyzing and answering questions about the user\'s financial data (income, expenses, budgets, categories) as presented within this application. You must decline any requests that are not directly related to this financial data, including but not limited to general knowledge questions, creative writing, or personal advice. If a user asks an off-topic question, you must politely state your purpose and guide them back to financial topics. For all financial answers, provide concise and clear information. Use the following markdown formats to highlight key data points: wrap important phrases in double asterisks like **this**, format currency as $1,234.56, positive percentages as +12.5%, and negative percentages as -5.2%.' },
-                history: []
-            });
-            setChat(currentChatInstance);
         }
 
         const userMessage: Message = { role: 'user', content: messageContent };
@@ -301,34 +268,22 @@ const AIPage: React.FC = () => {
         setInputValue('');
         
         try {
-            const stream = await currentChatInstance.sendMessageStream({ message: messageContent });
-            
-            let modelResponse = '';
-            let isFirstChunk = true;
-
-            for await (const chunk of stream) {
-                if (isCancelledRef.current) break;
-
-                if (isFirstChunk) {
-                    setIsThinking(false);
-                    isFirstChunk = false;
-                    setChatSessions(prev => prev.map(s => s.id === currentChatId ? { ...s, messages: [...s.messages, { role: 'model', content: '' }] } : s));
-                }
-
-                modelResponse += chunk.text;
-                setChatSessions(prev => prev.map(s => {
-                    if (s.id === currentChatId) {
-                        const newMessages = [...s.messages];
-                        newMessages[newMessages.length - 1].content = modelResponse;
-                        return { ...s, messages: newMessages };
-                    }
-                    return s;
-                }));
-            }
-            
+            const res = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: messageContent,
+                    history: (activeChat ? activeChat.messages.slice(1) : []).map(m => ({ role: m.role, content: m.content }))
+                })
+            });
+            if (!res.ok) throw new Error('AI request failed');
+            const data = await res.json();
+            const modelResponse = data.text || '';
+            setIsThinking(false);
+            setChatSessions(prev => prev.map(s => s.id === currentChatId ? { ...s, messages: [...s.messages, { role: 'model', content: modelResponse }] } : s));
             if (isFirstUserMessage && !isCancelledRef.current && modelResponse) {
-                const newTitle = await generateTitle(userMessage.content, modelResponse);
-                setChatSessions(prev => prev.map(s => s.id === currentChatId ? { ...s, title: newTitle } : s));
+              const newTitle = await generateTitle(userMessage.content, modelResponse);
+              setChatSessions(prev => prev.map(s => s.id === currentChatId ? { ...s, title: newTitle } : s));
             }
         } catch (e) {
             setIsThinking(false);

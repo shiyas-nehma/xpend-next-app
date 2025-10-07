@@ -35,16 +35,38 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
+## Environment Variables & Security
 
+Copy `.env.example` to `.env.local` and fill in your values:
 
-API_KEY = AIzaSyAtzcyHXBluvAHG_U87ISZThopxUR4yAP8
-NEXT_PUBLIC_GEMINI_API_KEY = AIzaSyAtzcyHXBluvAHG_U87ISZThopxUR4yAP8
+```
+cp .env.example .env.local
+```
 
+Important notes:
 
-NEXT_PUBLIC_FIREBASE_API_KEY="AIzaSyAbfAAFf_teW5TyGQwCU8g-IUQmWifZNAw"
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="testxpend.firebaseapp.com"
-NEXT_PUBLIC_FIREBASE_PROJECT_ID="testxpend"
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="testxpend.firebasestorage.app"
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="1094056735477"
-NEXT_PUBLIC_FIREBASE_APP_ID="1:1094056735477:web:8e292f05f29fd6e0facbbc"
-NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="G-D5XY3GRYQF"
+- Do NOT commit `.env.local` (it is gitignored by default – verify this).
+- Keep the Gemini / Google AI key server-side only. Use `GEMINI_API_KEY` (no `NEXT_PUBLIC_` prefix) and access it exclusively inside API routes or server components.
+- Firebase web config values are intentionally exposed to the client (they are public identifiers), but you must enforce security via Firestore Rules and Auth.
+- Remove any hard-coded fallback keys in code – they’ve been stripped from `src/lib/firebase/config.js`.
+
+If you previously pushed real keys to a public repo:
+1. Revoke the exposed keys in the Google Cloud / Firebase console.
+2. Generate new keys and update `.env.local`.
+3. Force-push removal is NOT enough – assume old keys are compromised.
+
+### Minimal required variables
+Refer to `.env.example` for the full list. At minimum:
+
+```
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+NEXT_PUBLIC_FIREBASE_APP_ID=...
+GEMINI_API_KEY=...
+```
+
+### AI Usage
+The client now calls a protected server route at `/api/ai/chat` which holds the Gemini key. Don’t expose AI keys in the browser bundle.

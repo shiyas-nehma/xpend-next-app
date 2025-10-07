@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+// Removed direct GoogleGenerativeAI import; using server AI route.
 import type { Goal } from '@/types';
 import { XIcon, SparklesIcon } from '@/components/icons/NavIcons';
 
@@ -19,7 +19,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, goalToEd
     const [progress, setProgress] = useState(0);
     const [priority, setPriority] = useState<Goal['priority']>('Medium');
     const [status, setStatus] = useState<Goal['status']>('Active');
-    const [deadline, setDeadline] = useState('');
+    const [deadline, setDeadline] = useState<string>('');
     const [tags, setTags] = useState('');
 
     const [aiPrompt, setAiPrompt] = useState('');
@@ -28,13 +28,13 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, goalToEd
 
     useEffect(() => {
         if (goalToEdit) {
-            setTitle(goalToEdit.title);
+            setTitle(goalToEdit.title || '');
             setDescription(goalToEdit.description);
             setProgress(goalToEdit.progress);
             setPriority(goalToEdit.priority);
             setStatus(goalToEdit.status);
             setDeadline(goalToEdit.deadline ? new Date(goalToEdit.deadline).toISOString().split('T')[0] : '');
-            setTags(goalToEdit.tags.join(', '));
+            setTags((goalToEdit.tags || []).join(', '));
         } else {
             setTitle('');
             setDescription('');
@@ -49,53 +49,33 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, goalToEd
         setIsGenerating(false);
     }, [goalToEdit, isOpen]);
 
-    const handleAIGenerate = async () => {
-        if (!aiPrompt) return;
-        setIsGenerating(true);
-        setGenerationError(null);
-    
-        try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-            const prompt = `Based on the following user goal, generate a structured goal object.
-            - Title: A concise and clear title for the goal.
-            - Description: A slightly more detailed one-sentence description.
-            - Priority: Classify the priority as 'High', 'Medium', or 'Low'.
-            - Tags: Suggest 2-3 relevant comma-separated tags.
-    
-            User Goal: "${aiPrompt}"`;
-    
-            const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: prompt,
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            title: { type: Type.STRING },
-                            description: { type: Type.STRING },
-                            priority: { type: Type.STRING, enum: ['High', 'Medium', 'Low'] },
-                            tags: { type: Type.STRING, description: "A comma-separated list of tags" }
-                        },
-                        required: ["title", "description", "priority", "tags"]
-                    },
-                },
-            });
-    
-            const result = JSON.parse(response.text);
-            
-            setTitle(result.title || '');
-            setDescription(result.description || '');
-            setPriority(result.priority || 'Medium');
-            setTags(result.tags || '');
-    
-        } catch (error) {
-            console.error("AI Goal Generation failed:", error);
-            setGenerationError("Sorry, I couldn't generate suggestions. Please try again.");
-        } finally {
-            setIsGenerating(false);
-        }
-    };
+        const handleAIGenerate = async () => {
+            if (!aiPrompt) return;
+            setIsGenerating(true);
+            setGenerationError(null);
+            try {
+                const prompt = `You are an assistant that structures user financial goals. Return ONLY raw JSON with no markdown fences. Schema: {"title": string, "description": string, "priority": "High"|"Medium"|"Low", "tags": string} where tags is a comma separated list of 2-3 short tags. User goal: ${aiPrompt}`;
+                const res = await fetch('/api/ai/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: prompt, history: [] })
+                });
+                if (!res.ok) throw new Error('AI request failed');
+                const data = await res.json();
+                const text: string = data.text || '';
+                const cleaned = text.replace(/```json\n?/gi, '').replace(/```/g, '').trim();
+                const result = JSON.parse(cleaned);
+                setTitle(result.title || '');
+                setDescription(result.description || '');
+                setPriority(result.priority || 'Medium');
+                setTags(result.tags || '');
+            } catch (error) {
+                console.error('AI Goal Generation failed:', error);
+                setGenerationError("Sorry, I couldn't generate suggestions. Please try again.");
+            } finally {
+                setIsGenerating(false);
+            }
+        };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
