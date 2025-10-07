@@ -14,6 +14,74 @@ import LoadingSpinner from '@/components/common/LoadingSpinner';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { AnimatePresence, motion } from 'framer-motion';
 
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { 
+    opacity: 0, 
+    y: 20,
+    scale: 0.95
+  },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring" as const,
+      stiffness: 300,
+      damping: 24
+    }
+  },
+  exit: {
+    opacity: 0,
+    y: -20,
+    scale: 0.95,
+    transition: {
+      duration: 0.2
+    }
+  }
+};
+
+const cardHoverVariants = {
+  hover: {
+    y: -8,
+    scale: 1.02,
+    transition: {
+      type: "spring" as const,
+      stiffness: 400,
+      damping: 25
+    }
+  },
+  tap: {
+    scale: 0.98,
+    transition: {
+      duration: 0.1
+    }
+  }
+};
+
+const fadeInVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: "easeOut"
+    }
+  }
+};
+
 const accountTypeIcons: Record<Account['type'], React.ReactNode> = {
     'Checking': <BankIcon />,
     'Savings': <PiggyBankIcon />,
@@ -27,39 +95,6 @@ const formatCurrency = (value: number) => {
         style: 'currency',
         currency: 'USD',
     });
-};
-
-// Animation variants
-const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-        opacity: 1,
-        transition: {
-            staggerChildren: 0.1,
-            delayChildren: 0.2
-        }
-    }
-};
-
-const itemVariants = {
-    hidden: { 
-        opacity: 0, 
-        y: 20,
-        scale: 0.95
-    },
-    visible: { 
-        opacity: 1, 
-        y: 0,
-        scale: 1
-    },
-    exit: {
-        opacity: 0,
-        y: -20,
-        scale: 0.95,
-        transition: {
-            duration: 0.2
-        }
-    }
 };
 
 const NetWorthCard: React.FC<{ accounts: Account[] }> = ({ accounts }) => {
@@ -76,7 +111,7 @@ const NetWorthCard: React.FC<{ accounts: Account[] }> = ({ accounts }) => {
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{
-                type: "spring",
+                type: "spring" as const,
                 stiffness: 300,
                 damping: 30,
                 delay: 0.1
@@ -97,8 +132,8 @@ const NetWorthCard: React.FC<{ accounts: Account[] }> = ({ accounts }) => {
                         className="text-4xl font-bold text-brand-text-primary"
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.5, duration: 0.5, type: "spring" }}
-                        key={netWorth}
+                        transition={{ delay: 0.5, duration: 0.5, type: "spring" as const }}
+                        key={netWorth} // Re-animate when value changes
                     >
                         {formatCurrency(netWorth)}
                     </motion.p>
@@ -151,28 +186,18 @@ const AccountCard: React.FC<{
     onDelete: (account: Account) => void;
 }> = ({ account, onEdit, onDelete }) => (
     <motion.div 
-        className="group relative p-4 bg-brand-surface rounded-2xl border border-brand-border flex flex-col"
+        className="group relative p-4 bg-brand-surface rounded-2xl border border-brand-border flex flex-col transition-all duration-300"
         variants={itemVariants}
-        initial="hidden"
-        animate="visible"
-        exit="exit"
-        whileHover={{
-            y: -8,
-            scale: 1.02,
-            borderColor: "rgb(59 130 246)",
-            boxShadow: "0 25px 50px -12px rgba(59, 130, 246, 0.25)",
-            transition: {
-                type: "spring",
-                stiffness: 400,
-                damping: 25
-            }
-        }}
-        whileTap={{
-            scale: 0.98,
-            transition: { duration: 0.1 }
-        }}
+        whileHover="hover"
+        whileTap="tap"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20, scale: 0.95 }}
         layout
         layoutId={`account-${account.id}`}
+        style={{
+            transformOrigin: 'center',
+        }}
     >
         <motion.div 
             className="flex-grow"
@@ -211,7 +236,7 @@ const AccountCard: React.FC<{
                     <motion.p 
                         className={`text-xl font-bold ${account.balance >= 0 ? 'text-brand-text-primary' : 'text-red-400'}`}
                         whileHover={{ scale: 1.05 }}
-                        key={account.balance}
+                        key={account.balance} // Re-animate when balance changes
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ type: "spring", stiffness: 400 }}
@@ -233,11 +258,24 @@ const AccountCard: React.FC<{
         </motion.div>
         
         <motion.div 
-            className="absolute top-3 right-3 flex items-center rounded-md bg-brand-surface-2/80 backdrop-blur-sm border border-brand-border overflow-hidden transition-opacity duration-300 z-10 opacity-100"
+            className="absolute top-3 right-3 flex items-center rounded-md bg-brand-surface-2/80 backdrop-blur-sm border border-brand-border overflow-hidden transition-opacity duration-300 z-10"
             initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            whileHover={{ scale: 1.05 }}
-            transition={{ duration: 0.2 }}
+            animate={{ 
+                opacity: 0,
+                scale: 0.8
+            }}
+            whileHover={{ 
+                opacity: 1,
+                scale: 1,
+                transition: { duration: 0.2 }
+            }}
+            variants={{
+                hover: {
+                    opacity: 1,
+                    scale: 1,
+                    transition: { duration: 0.2 }
+                }
+            }}
         >
             <motion.button 
                 onClick={() => onEdit(account)} 
@@ -327,190 +365,96 @@ export default function AccountsPage() {
     // Show loading spinner while checking authentication
     if (authLoading) {
         return (
-            <motion.div 
-                className="p-8 flex justify-center items-center h-full"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-            >
+            <div className="p-8 flex justify-center items-center h-full">
                 <LoadingSpinner size="large" />
-            </motion.div>
+            </div>
         );
     }
 
     // Show error message if user is not authenticated
     if (!user) {
         return (
-            <motion.div 
-                className="p-8 flex flex-col items-center justify-center h-full"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-            >
+            <div className="p-8 flex flex-col items-center justify-center h-full">
                 <p className="text-brand-text-secondary mb-4">Please log in to view your accounts.</p>
-            </motion.div>
+            </div>
         );
     }
 
     // Show loading spinner while fetching accounts
     if (accountsLoading) {
         return (
-            <motion.div 
-                className="p-8 flex justify-center items-center h-full"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-            >
+            <div className="p-8 flex justify-center items-center h-full">
                 <LoadingSpinner size="large" />
-            </motion.div>
+            </div>
         );
     }
 
     // Show error message if there's an error
     if (error) {
         return (
-            <motion.div 
-                className="p-8 flex flex-col items-center justify-center h-full"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-            >
+            <div className="p-8 flex flex-col items-center justify-center h-full">
                 <p className="text-red-400 mb-4">Error: {error}</p>
                 
-                <motion.button 
+                <button 
                     onClick={() => window.location.reload()} 
                     className="px-4 py-2 bg-brand-blue text-white rounded-lg hover:bg-opacity-80"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    transition={{ type: "spring", stiffness: 400 }}
                 >
                     Try Again
-                </motion.button>
-            </motion.div>
+                </button>
+            </div>
         );
     }
 
     const content = (
-        <motion.div
-            className="p-8 flex flex-col h-full"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-        >
-            <motion.div 
-                className="flex flex-wrap justify-between items-center gap-4 mb-6"
-                variants={itemVariants}
-            >
-                <h1 className="text-2xl font-bold text-brand-text-primary">Accounts</h1>
-                <motion.button 
-                    onClick={() => handleOpenModal(null)} 
-                    className="flex items-center space-x-2 bg-white text-black font-bold py-2 px-4 rounded-lg hover:bg-gray-200 transition duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]"
-                    whileHover={{ 
-                        scale: 1.05,
-                        boxShadow: "0 10px 25px rgba(0,0,0,0.1)"
-                    }}
-                    whileTap={{ scale: 0.95 }}
-                    transition={{ type: "spring", stiffness: 400 }}
-                >
-                    <PlusIcon className="w-5 h-5" />
-                    <span>Add New Account</span>
-                </motion.button>
-            </motion.div>
+        <>
+            <div className="p-8 flex flex-col h-full">
+                <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
+                    <h1 className="text-2xl font-bold text-brand-text-primary">Accounts</h1>
+                    <button onClick={() => handleOpenModal(null)} className="flex items-center space-x-2 bg-white text-black font-bold py-2 px-4 rounded-lg hover:bg-gray-200 transition duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]">
+                        <PlusIcon className="w-5 h-5" />
+                        <span>Add New Account</span>
+                    </button>
+                </div>
 
-            <NetWorthCard accounts={accounts} />
+                <NetWorthCard accounts={accounts} />
 
-            {accounts.length > 0 ? (
-                <motion.div 
-                    className="space-y-8"
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
-                >
-                    <AnimatePresence mode="wait">
+                {accounts.length > 0 ? (
+                    <div className="space-y-8">
                         {assets.length > 0 && (
-                            <motion.div
-                                key="assets"
-                                variants={itemVariants}
-                                initial="hidden"
-                                animate="visible"
-                                exit="exit"
-                            >
+                            <div>
                                 <h2 className="text-xl font-bold text-brand-text-primary mb-4">Assets</h2>
-                                <motion.div 
-                                    className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
-                                    variants={containerVariants}
-                                    initial="hidden"
-                                    animate="visible"
-                                >
-                                    <AnimatePresence>
-                                        {assets.map(account => (
-                                            <AccountCard 
-                                                key={account.id} 
-                                                account={account} 
-                                                onEdit={handleOpenModal} 
-                                                onDelete={handleDeleteRequest} 
-                                            />
-                                        ))}
-                                    </AnimatePresence>
-                                </motion.div>
-                            </motion.div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                    {assets.map(account => (
+                                        <AccountCard key={account.id} account={account} onEdit={handleOpenModal} onDelete={handleDeleteRequest} />
+                                    ))}
+                                </div>
+                            </div>
                         )}
                         {liabilities.length > 0 && (
-                            <motion.div
-                                key="liabilities"
-                                variants={itemVariants}
-                                initial="hidden"
-                                animate="visible"
-                                exit="exit"
-                            >
+                            <div>
                                 <h2 className="text-xl font-bold text-brand-text-primary mb-4">Liabilities</h2>
-                                <motion.div 
-                                    className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
-                                    variants={containerVariants}
-                                    initial="hidden"
-                                    animate="visible"
-                                >
-                                    <AnimatePresence>
-                                        {liabilities.map(account => (
-                                            <AccountCard 
-                                                key={account.id} 
-                                                account={account} 
-                                                onEdit={handleOpenModal} 
-                                                onDelete={handleDeleteRequest} 
-                                            />
-                                        ))}
-                                    </AnimatePresence>
-                                </motion.div>
-                            </motion.div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                    {liabilities.map(account => (
+                                        <AccountCard key={account.id} account={account} onEdit={handleOpenModal} onDelete={handleDeleteRequest} />
+                                    ))}
+                                </div>
+                            </div>
                         )}
-                    </AnimatePresence>
-                </motion.div>
-            ) : (
-                <motion.div
-                    variants={itemVariants}
-                    initial="hidden"
-                    animate="visible"
-                >
+                    </div>
+                ) : (
                     <EmptyState
                         icon={<EmptyStateIcon />}
                         title="No Accounts Added"
                         message="Get a complete view of your finances by adding your bank accounts, credit cards, and loans."
                         primaryAction={
-                            <motion.button 
-                                onClick={() => handleOpenModal(null)} 
-                                className="flex items-center space-x-2 bg-white text-black font-bold py-2 px-4 rounded-lg hover:bg-gray-200 transition"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                transition={{ type: "spring", stiffness: 400 }}
-                            >
+                            <button onClick={() => handleOpenModal(null)} className="flex items-center space-x-2 bg-white text-black font-bold py-2 px-4 rounded-lg hover:bg-gray-200 transition">
                                 <PlusIcon className="w-5 h-5" />
                                 Add Your First Account
-                            </motion.button>
+                            </button>
                         }
                     />
-                </motion.div>
-            )}
-            
+                )}
+            </div>
             <AccountModal
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
@@ -524,7 +468,7 @@ export default function AccountsPage() {
                 title="Delete Account"
                 message={`Are you sure you want to delete the account "${deletingAccount?.name}"? This action cannot be undone.`}
             />
-        </motion.div>
+        </>
     );
 
     return (

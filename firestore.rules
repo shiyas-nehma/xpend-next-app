@@ -1,0 +1,25 @@
+// Firestore Security Rules for Xpend App (Temporary - More Permissive for Testing)
+// Copy this content to your Firebase Console -> Firestore Database -> Rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Temporary permissive rules for debugging
+    // TODO: Replace with more restrictive rules in production
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Accounts collection - allow authenticated users to read/write their own data
+    match /accounts/{accountId} {
+      allow read, write: if isAuthenticated();
+      allow create: if isAuthenticated();
+    }
+    
+    // Allow all authenticated users to read/write (temporary for testing)
+    match /{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}

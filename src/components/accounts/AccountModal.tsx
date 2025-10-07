@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import type { Account } from '@/types';
 import { XIcon } from '@/components/icons/NavIcons';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface AccountModalProps {
     isOpen: boolean;
@@ -39,13 +39,19 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
             finalBalance = -Math.abs(finalBalance);
         }
 
-        onSave({
-            id: accountToEdit?.id,
+        const accountData: any = {
             name,
             type,
             institution,
             balance: finalBalance,
-        });
+        };
+
+        // Only include id if we're editing an existing account
+        if (accountToEdit?.id) {
+            accountData.id = accountToEdit.id;
+        }
+
+        onSave(accountData);
     };
     
     const handleBalanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -56,63 +62,201 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
         }
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in-scale">
-            <div className="w-full max-w-lg bg-brand-surface rounded-2xl shadow-2xl p-8 z-10 
-                   border border-transparent 
-                   [background:linear-gradient(theme(colors.brand.surface),theme(colors.brand.surface))_padding-box,linear-gradient(120deg,theme(colors.brand.border),theme(colors.brand.border)_50%,rgba(93,120,255,0.5))_border-box]
-                   relative">
-                <div className="flex justify-between items-center mb-8">
-                    <h2 className="text-2xl font-bold text-brand-text-primary">{accountToEdit ? 'Edit Account' : 'Add New Account'}</h2>
-                    <button onClick={onClose} className="text-brand-text-secondary hover:text-white transition-colors">
-                        <XIcon className="w-6 h-6" />
-                    </button>
-                </div>
-                
-                <form onSubmit={handleSubmit} className="space-y-5">
-                    <div>
-                        <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="accountName">Account Name</label>
-                        <input type="text" id="accountName" value={name} onChange={e => setName(e.target.value)} required placeholder="e.g., Chase Checking" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue" />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="accountType">Account Type</label>
-                            <select id="accountType" value={type} onChange={e => setType(e.target.value as Account['type'])} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 h-11 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue">
-                                <option>Checking</option>
-                                <option>Savings</option>
-                                <option value="Credit Card">Credit Card</option>
-                                <option>Investment</option>
-                                <option>Loan</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="institution">Institution (Optional)</label>
-                            <input type="text" id="institution" value={institution} onChange={e => setInstitution(e.target.value)} placeholder="e.g., Chase Bank" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue" />
-                        </div>
-                    </div>
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div 
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    onClick={onClose}
+                >
+                    <motion.div 
+                        className="w-full max-w-lg bg-brand-surface rounded-2xl shadow-2xl p-8 z-10 
+                                   border border-brand-border relative"
+                        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                        transition={{ 
+                            type: "spring", 
+                            stiffness: 300, 
+                            damping: 30,
+                            duration: 0.3 
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <motion.div 
+                            className="flex justify-between items-center mb-8"
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1, duration: 0.3 }}
+                        >
+                            <h2 className="text-2xl font-bold text-brand-text-primary">
+                                {accountToEdit ? 'Edit Account' : 'Add New Account'}
+                            </h2>
+                            <motion.button 
+                                onClick={onClose} 
+                                className="text-brand-text-secondary hover:text-white transition-colors"
+                                whileHover={{ scale: 1.1, rotate: 90 }}
+                                whileTap={{ scale: 0.9 }}
+                                transition={{ type: "spring", stiffness: 400 }}
+                            >
+                                <XIcon className="w-6 h-6" />
+                            </motion.button>
+                        </motion.div>
+                        
+                        <motion.form 
+                            onSubmit={handleSubmit} 
+                            className="space-y-5"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2, duration: 0.3 }}
+                        >
+                            <motion.div
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.3, duration: 0.3 }}
+                            >
+                                <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="accountName">
+                                    Account Name
+                                </label>
+                                <motion.input 
+                                    type="text" 
+                                    id="accountName" 
+                                    value={name} 
+                                    onChange={e => setName(e.target.value)} 
+                                    required 
+                                    placeholder="e.g., Chase Checking" 
+                                    className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-200"
+                                    whileFocus={{ 
+                                        scale: 1.01,
+                                        borderColor: "rgb(59 130 246)",
+                                        boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)"
+                                    }}
+                                />
+                            </motion.div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <motion.div
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: 0.4, duration: 0.3 }}
+                                >
+                                    <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="accountType">
+                                        Account Type
+                                    </label>
+                                    <motion.select 
+                                        id="accountType" 
+                                        value={type} 
+                                        onChange={e => setType(e.target.value as Account['type'])} 
+                                        className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 h-11 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-200"
+                                        whileFocus={{ 
+                                            scale: 1.01,
+                                            borderColor: "rgb(59 130 246)",
+                                            boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)"
+                                        }}
+                                    >
+                                        <option>Checking</option>
+                                        <option>Savings</option>
+                                        <option value="Credit Card">Credit Card</option>
+                                        <option>Investment</option>
+                                        <option>Loan</option>
+                                    </motion.select>
+                                </motion.div>
+                                <motion.div
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: 0.4, duration: 0.3 }}
+                                >
+                                    <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="institution">
+                                        Institution (Optional)
+                                    </label>
+                                    <motion.input 
+                                        type="text" 
+                                        id="institution" 
+                                        value={institution} 
+                                        onChange={e => setInstitution(e.target.value)} 
+                                        placeholder="e.g., Chase Bank" 
+                                        className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-200"
+                                        whileFocus={{ 
+                                            scale: 1.01,
+                                            borderColor: "rgb(59 130 246)",
+                                            boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)"
+                                        }}
+                                    />
+                                </motion.div>
+                            </div>
 
-                    <div>
-                        <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="balance">
-                           {type === 'Credit Card' || type === 'Loan' ? 'Current Debt' : 'Current Balance'}
-                        </label>
-                        <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-secondary">$</span>
-                            <input type="text" id="balance" value={balance} onChange={handleBalanceChange} required placeholder="0.00" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg pl-7 pr-3 py-2 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue" />
-                        </div>
-                    </div>
-                    
-                    <div className="mt-8 pt-6 border-t border-brand-border flex justify-end space-x-3">
-                        <button type="button" onClick={onClose} className="bg-brand-surface-2 border border-brand-border text-sm font-bold px-4 py-2 rounded-lg hover:bg-brand-border transition-colors">Cancel</button>
-                        <button type="submit" className="bg-white text-black text-sm font-bold px-4 py-2 rounded-lg hover:bg-gray-200 shadow-[0_0_10px_rgba(255,255,255,0.1)] bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]">
-                            {accountToEdit ? 'Save Changes' : 'Add Account'}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.5, duration: 0.3 }}
+                            >
+                                <label className="block text-brand-text-secondary text-sm font-medium mb-2" htmlFor="balance">
+                                    {(type === 'Credit Card' || type === 'Loan') ? 'Amount Owed' : 'Current Balance'}
+                                </label>
+                                <motion.input 
+                                    type="text" 
+                                    id="balance" 
+                                    value={balance} 
+                                    onChange={handleBalanceChange} 
+                                    required 
+                                    placeholder="0.00" 
+                                    className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all duration-200"
+                                    whileFocus={{ 
+                                        scale: 1.01,
+                                        borderColor: "rgb(59 130 246)",
+                                        boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)"
+                                    }}
+                                />
+                                {(type === 'Credit Card' || type === 'Loan') && (
+                                    <motion.p 
+                                        className="text-xs text-brand-text-secondary mt-1"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: 0.6, duration: 0.3 }}
+                                    >
+                                        Enter the amount you owe (will be stored as negative)
+                                    </motion.p>
+                                )}
+                            </motion.div>
+
+                            <motion.div 
+                                className="flex gap-3 pt-4"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.6, duration: 0.3 }}
+                            >
+                                <motion.button 
+                                    type="button" 
+                                    onClick={onClose} 
+                                    className="flex-1 py-2 px-4 text-brand-text-secondary border border-brand-border rounded-lg hover:bg-brand-surface-2 transition-colors"
+                                    whileHover={{ scale: 1.02, backgroundColor: "rgba(255, 255, 255, 0.05)" }}
+                                    whileTap={{ scale: 0.98 }}
+                                    transition={{ type: "spring", stiffness: 400 }}
+                                >
+                                    Cancel
+                                </motion.button>
+                                <motion.button 
+                                    type="submit" 
+                                    className="flex-1 py-2 px-4 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]"
+                                    whileHover={{ 
+                                        scale: 1.02,
+                                        boxShadow: "0 10px 25px rgba(0,0,0,0.1)"
+                                    }}
+                                    whileTap={{ scale: 0.98 }}
+                                    transition={{ type: "spring", stiffness: 400 }}
+                                >
+                                    {accountToEdit ? 'Update Account' : 'Add Account'}
+                                </motion.button>
+                            </motion.div>
+                        </motion.form>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 };
 
