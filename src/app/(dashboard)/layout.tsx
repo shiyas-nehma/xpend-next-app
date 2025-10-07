@@ -4,18 +4,26 @@
 import '@/app/globals.css'
 import { ToastProvider } from '@/context/ToastContext'
 import Sidebar from '@/components/layout/Sidebar'
-import MobileNavigation from '@/components/layout/MobileNavigation'
  import { useRouter } from 'next/navigation';
-import { useActivePage } from '@/hooks/useActivePage';
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
       const router = useRouter();
-      const activePage = useActivePage();
     
-      const handleNavigation = (page: string) => {
+      const handleNavigation = async (page: string) => {
+        if (page === 'Logout') {
+          try {
+            await logout();
+            showToast('Logged out successfully', 'success');
+            router.push('/login');
+          } catch (error) {
+            showToast('Failed to logout', 'error');
+          }
+          return;
+        }
+
         const pageRoutes: { [key: string]: string } = {
           'Dashboard': '/dashboard',
           'AI': '/all',
@@ -26,8 +34,7 @@ export default function RootLayout({
           'Budget': '/budget',
           'Goals': '/goals',
           'Report': '/report',
-          'Settings': '/settings',
-          'Logout': '/login'
+          'Settings': '/settings'
         };
         
         const route = pageRoutes[page];
@@ -35,17 +42,17 @@ export default function RootLayout({
           router.push(route);
         }
       };
+      
   return (
-
+    <ProtectedRoute>
       <main> 
         <div className="flex h-screen bg-brand-background">
-      <Sidebar activePage={activePage} onNavigate={handleNavigation} />
-      <div className="flex-1 md:ml-20 overflow-y-auto pb-16 md:pb-0">
+      <Sidebar activePage="Dashboard" onNavigate={handleNavigation} />
+      <div className="w-full">
             {children}
             </div>
-            <MobileNavigation activePage={activePage} onNavigate={handleNavigation} />
             </div>
       </main>
-
+    </ProtectedRoute>
   )
 }

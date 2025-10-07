@@ -1,6 +1,7 @@
 import './globals.css'
 import { DataProvider } from '../context/DataContext'
 import { ToastProvider } from '../context/ToastContext'
+import { AuthProvider } from '../context/AuthContext'
  
 export default function RootLayout({
   children,
@@ -10,11 +11,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <DataProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
-        </DataProvider>
+        <AuthProvider>
+          <DataProvider>
+            <ToastProvider>
+              {children}
+            </ToastProvider>
+          </DataProvider>
+        </AuthProvider>
       </body>
     </html>
   )

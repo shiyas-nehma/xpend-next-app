@@ -34,3 +34,17 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+
+API_KEY = AIzaSyAtzcyHXBluvAHG_U87ISZThopxUR4yAP8
+NEXT_PUBLIC_GEMINI_API_KEY = AIzaSyAtzcyHXBluvAHG_U87ISZThopxUR4yAP8
+
+
+NEXT_PUBLIC_FIREBASE_API_KEY="AIzaSyAbfAAFf_teW5TyGQwCU8g-IUQmWifZNAw"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="testxpend.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="testxpend"
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="testxpend.firebasestorage.app"
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="1094056735477"
+NEXT_PUBLIC_FIREBASE_APP_ID="1:1094056735477:web:8e292f05f29fd6e0facbbc"
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="G-D5XY3GRYQF"
