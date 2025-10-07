@@ -31,7 +31,13 @@ console.log('Firebase config:', {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+
+// Initialize Analytics only on client side
+let analytics;
+if (typeof window !== 'undefined') {
+  analytics = getAnalytics(app);
+}
+
 const db = getFirestore(app);
 const auth = getAuth(app);
 

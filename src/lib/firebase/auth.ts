@@ -7,7 +7,7 @@ import {
   updateProfile,
   User
 } from 'firebase/auth';
-import { auth } from './config';
+import { auth } from './config.js';
 
 // Types for auth functions
 export interface SignUpData {

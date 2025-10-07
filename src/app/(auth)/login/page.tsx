@@ -33,7 +33,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
-  const { showToast } = useToast();
+  const { addToast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -48,12 +48,12 @@ export default function LoginPage() {
 
     try {
       await signIn(formData);
-      showToast('Welcome back!', 'success');
+      addToast('Welcome back!', 'success');
       router.push('/dashboard');
     } catch (error: any) {
       const errorMessage = getAuthErrorMessage(error.code) || error.message;
       setError(errorMessage);
-      showToast(errorMessage, 'error');
+      addToast(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -65,12 +65,12 @@ export default function LoginPage() {
 
     try {
       await signInWithGoogle();
-      showToast('Welcome back!', 'success');
+      addToast('Welcome back!', 'success');
       router.push('/dashboard');
     } catch (error: any) {
       const errorMessage = getAuthErrorMessage(error.code) || error.message;
       setError(errorMessage);
-      showToast(errorMessage, 'error');
+      addToast(errorMessage, 'error');
     } finally {
       setLoading(false);
     }

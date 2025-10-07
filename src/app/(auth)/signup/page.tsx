@@ -39,7 +39,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
-  const { showToast } = useToast();
+  const { addToast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -86,13 +86,13 @@ export default function SignupPage() {
         password: formData.password,
         fullName: formData.fullName
       });
-      showToast('Account created successfully!', 'success');
+      addToast('Account created successfully!', 'success');
       router.push('/onboarding');
     } catch (error: any) {
       console.error('Signup error in component:', error); // Debug log
       const errorMessage = getAuthErrorMessage(error.code) || error.message;
       setError(errorMessage);
-      showToast(errorMessage, 'error');
+      addToast(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -104,12 +104,12 @@ export default function SignupPage() {
 
     try {
       await signInWithGoogle();
-      showToast('Account created successfully!', 'success');
+      addToast('Account created successfully!', 'success');
       router.push('/onboarding');
     } catch (error: any) {
       const errorMessage = getAuthErrorMessage(error.code) || error.message;
       setError(errorMessage);
-      showToast(errorMessage, 'error');
+      addToast(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
