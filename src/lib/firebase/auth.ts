@@ -54,6 +54,16 @@ export interface UserProfileData {
 // Sign up with email and password
 export const signUp = async ({ email, password, fullName }: SignUpData): Promise<User> => {
   try {
+    // Check if full name contains "superadmin" (case-insensitive)
+    if (fullName.toLowerCase().includes('superadmin')) {
+      throw new Error('The name "superadmin" is restricted and not allowed for registration');
+    }
+    
+    // Check if email contains "superadmin" (case-insensitive)
+    if (email.toLowerCase().includes('superadmin')) {
+      throw new Error('Email addresses containing "superadmin" are restricted and not allowed for registration');
+    }
+    
     console.log('Attempting to create user with:', { email, fullName }); // Debug log
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
@@ -128,6 +138,20 @@ export const signInWithGoogle = async (): Promise<{ user: User; userData: any }>
     const provider = new GoogleAuthProvider();
     const userCredential = await signInWithPopup(auth, provider);
     const user = userCredential.user;
+    
+    // Check if display name contains "superadmin" (case-insensitive)
+    if (user.displayName && user.displayName.toLowerCase().includes('superadmin')) {
+      // Sign out the user immediately
+      await signOut(auth);
+      throw new Error('The name "superadmin" is restricted and not allowed for registration');
+    }
+    
+    // Check if email contains "superadmin" (case-insensitive)
+    if (user.email && user.email.toLowerCase().includes('superadmin')) {
+      // Sign out the user immediately
+      await signOut(auth);
+      throw new Error('Email addresses containing "superadmin" are restricted and not allowed for registration');
+    }
     
     // Check if user document exists in Firestore
     const userDoc = await getDoc(doc(db, 'users', user.uid));
