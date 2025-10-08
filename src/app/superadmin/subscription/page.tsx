@@ -1,40 +1,12 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from 'recharts';
 import { useCurrency } from '@/context/CurrencyContext';
 
 // Types
-interface FeatureLimits {
-  maxCategories: number;
-  maxIncomes: number;
-  maxExpenses: number;
-  maxAccounts: number;
-  maxBudgets: number;
-  analyticsAccess: boolean;
-  reportGeneration: boolean;
-  dataExport: boolean;
-  apiAccess: boolean;
-  prioritySupport: boolean;
-  customIntegrations: boolean;
-}
-
-interface Plan {
-  id: string;
-  name: string;
-  monthlyPrice: number; // base monthly
-  annualDiscountPct?: number; // optional discount for annual
-  features: string[];
-  featureLimits: FeatureLimits;
-  status: 'active' | 'draft' | 'deprecated';
-  subscribers: number; // active subscribers on this plan
-  trialDays: number;
-  maxDuration: number; // in days
-  durationType: 'days' | 'months' | 'years';
-  highlight?: boolean; // UI highlight
-  sortOrder: number;
-}
+import { SubscriptionPlanService, Plan, FeatureLimits, defaultFeatureLimits } from '@/lib/firebase/subscriptionService';
 
 interface EditState {
   open: boolean;
@@ -214,14 +186,7 @@ const PlanModal: React.FC<{ state: EditState; onClose: () => void; onSave: (plan
                   <input type="number" value={form.featureLimits?.maxExpenses ?? 50} onChange={e => updateFeatureLimit('maxExpenses', parseInt(e.target.value))} placeholder="-1 for unlimited" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
                   <p className="text-xs text-brand-text-secondary mt-1">Per month</p>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-brand-text-secondary block mb-1">Max Accounts</label>
-                  <input type="number" value={form.featureLimits?.maxAccounts ?? 5} onChange={e => updateFeatureLimit('maxAccounts', parseInt(e.target.value))} placeholder="-1 for unlimited" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-brand-text-secondary block mb-1">Max Budgets</label>
-                  <input type="number" value={form.featureLimits?.maxBudgets ?? 10} onChange={e => updateFeatureLimit('maxBudgets', parseInt(e.target.value))} placeholder="-1 for unlimited" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
-                </div>
+                
               </div>
             </div>
 
@@ -264,13 +229,7 @@ const PlanModal: React.FC<{ state: EditState; onClose: () => void; onSave: (plan
                     <p className="text-xs text-brand-text-secondary">24h response time</p>
                   </div>
                 </label>
-                <label className="inline-flex items-center gap-3 text-sm text-brand-text-secondary select-none p-3 bg-brand-surface-2 rounded-lg border border-brand-border hover:bg-brand-surface transition-colors">
-                  <input type="checkbox" checked={!!form.featureLimits?.customIntegrations} onChange={e => updateFeatureLimit('customIntegrations', e.target.checked)} className="rounded border-brand-border bg-brand-surface-2" />
-                  <div>
-                    <span className="font-medium">Custom Integrations</span>
-                    <p className="text-xs text-brand-text-secondary">Webhooks, custom apps</p>
-                  </div>
-                </label>
+                
               </div>
             </div>
 
@@ -321,87 +280,17 @@ const SubscriptionPage: React.FC = () => {
   const [billingPeriod, setBillingPeriod] = useState<'Monthly' | 'Annual'>('Monthly');
   const [editState, setEditState] = useState<EditState>({ open: false, plan: null });
 
-  const [plans, setPlans] = useState<Plan[]>([
-    { 
-      id: 'basic', 
-      name: 'Basic', 
-      monthlyPrice: 9.99, 
-      annualDiscountPct: 20, 
-      features: ['Up to 5 categories', 'Up to 50 transactions/month', 'Basic reports', 'Email support'], 
-      featureLimits: {
-        maxCategories: 5,
-        maxIncomes: 25,
-        maxExpenses: 25,
-        maxAccounts: 3,
-        maxBudgets: 5,
-        analyticsAccess: false,
-        reportGeneration: true,
-        dataExport: false,
-        apiAccess: false,
-        prioritySupport: false,
-        customIntegrations: false,
-      },
-      status: 'active', 
-      subscribers: 1245, 
-      trialDays: 7,
-      maxDuration: 30,
-      durationType: 'days',
-      sortOrder: 1 
-    },
-    { 
-      id: 'pro', 
-      name: 'Pro', 
-      monthlyPrice: 19.99, 
-      annualDiscountPct: 25, 
-      features: ['Unlimited categories', 'Unlimited transactions', 'Advanced analytics', 'Priority support', 'Data export'], 
-      featureLimits: {
-        maxCategories: -1, // -1 means unlimited
-        maxIncomes: -1,
-        maxExpenses: -1,
-        maxAccounts: 10,
-        maxBudgets: -1,
-        analyticsAccess: true,
-        reportGeneration: true,
-        dataExport: true,
-        apiAccess: false,
-        prioritySupport: true,
-        customIntegrations: false,
-      },
-      status: 'active', 
-      subscribers: 856, 
-      trialDays: 14,
-      maxDuration: 12,
-      durationType: 'months',
-      sortOrder: 2, 
-      highlight: true 
-    },
-    { 
-      id: 'enterprise', 
-      name: 'Enterprise', 
-      monthlyPrice: 59.0, 
-      annualDiscountPct: 30, 
-      features: ['All Pro features', 'API access', 'Custom integrations', '24/7 phone support', 'Dedicated account manager'], 
-      featureLimits: {
-        maxCategories: -1,
-        maxIncomes: -1,
-        maxExpenses: -1,
-        maxAccounts: -1,
-        maxBudgets: -1,
-        analyticsAccess: true,
-        reportGeneration: true,
-        dataExport: true,
-        apiAccess: true,
-        prioritySupport: true,
-        customIntegrations: true,
-      },
-      status: 'draft', 
-      subscribers: 34, 
-      trialDays: 21,
-      maxDuration: 1,
-      durationType: 'years',
-      sortOrder: 3 
-    }
-  ]);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+
+  // Real-time subscription to plans collection
+  useEffect(() => {
+    const unsub = SubscriptionPlanService.onPlansChange((list) => {
+      setPlans(list);
+      setPlansLoading(false);
+    });
+    return () => unsub();
+  }, []);
 
   // Derived KPI metrics
   const metrics = useMemo(() => {
@@ -418,53 +307,40 @@ const SubscriptionPage: React.FC = () => {
     return format(annual, { currency: code });
   };
 
-  const handleSavePlan = (partial: Partial<Plan>) => {
-    if (partial.id) {
-      setPlans(prev => prev.map(p => p.id === partial.id ? { ...p, ...partial } as Plan : p));
-    } else {
-      const id = partial.name?.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
-      const defaultFeatureLimits: FeatureLimits = {
-        maxCategories: 10,
-        maxIncomes: 50,
-        maxExpenses: 50,
-        maxAccounts: 5,
-        maxBudgets: 10,
-        analyticsAccess: false,
-        reportGeneration: true,
-        dataExport: false,
-        apiAccess: false,
-        prioritySupport: false,
-        customIntegrations: false,
-      };
-      
-      const newPlan: Plan = {
-        id,
-        name: partial.name || 'New Plan',
-        monthlyPrice: partial.monthlyPrice || 0,
-        annualDiscountPct: partial.annualDiscountPct || 0,
-        features: partial.features || [],
-        featureLimits: partial.featureLimits || defaultFeatureLimits,
-        status: (partial.status as any) || 'draft',
-        subscribers: partial.subscribers || 0,
-        trialDays: partial.trialDays || 0,
-        maxDuration: partial.maxDuration || 30,
-        durationType: partial.durationType || 'days',
-        highlight: partial.highlight,
-        sortOrder: partial.sortOrder || prev.length + 1
-      };
-      
-      setPlans(prev => [...prev, newPlan]);
+  const handleSavePlan = async (partial: Partial<Plan>) => {
+    try {
+      if (partial.id) {
+        await SubscriptionPlanService.updatePlan(partial.id, partial);
+      } else {
+        const maxSort = plans.reduce((m,p) => Math.max(m, p.sortOrder || 0), 0);
+        await SubscriptionPlanService.createPlan({
+          name: partial.name || 'New Plan',
+          monthlyPrice: partial.monthlyPrice ?? 0,
+          annualDiscountPct: partial.annualDiscountPct ?? 0,
+          features: partial.features || [],
+          featureLimits: partial.featureLimits || defaultFeatureLimits,
+          status: (partial.status as any) || 'draft',
+            subscribers: 0,
+          trialDays: partial.trialDays ?? 0,
+          maxDuration: partial.maxDuration ?? 30,
+          durationType: partial.durationType || 'days',
+          highlight: partial.highlight,
+          sortOrder: (partial.sortOrder !== undefined ? partial.sortOrder : maxSort + 1)
+        });
+      }
+    } catch (e) {
+      console.error('Failed to save plan', e);
+      alert('Failed to save plan. Check console for details.');
     }
   };
 
-  const toggleStatus = (plan: Plan) => {
-    setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, status: p.status === 'active' ? 'deprecated' : 'active' } : p));
+  const toggleStatus = async (plan: Plan) => {
+    try { await SubscriptionPlanService.updatePlan(plan.id, { status: plan.status === 'active' ? 'deprecated' : 'active' }); } catch (e) { console.error(e); }
   };
 
-  const deletePlan = (plan: Plan) => {
-    if (confirm(`Delete plan ${plan.name}?`)) {
-      setPlans(prev => prev.filter(p => p.id !== plan.id));
-    }
+  const deletePlan = async (plan: Plan) => {
+    if (!confirm(`Delete plan ${plan.name}?`)) return;
+    try { await SubscriptionPlanService.deletePlan(plan.id); } catch (e) { console.error(e); alert('Failed to delete plan'); }
   };
 
   const orderedPlans = useMemo(() => plans.slice().sort((a,b) => a.sortOrder - b.sortOrder), [plans]);
@@ -523,10 +399,22 @@ const SubscriptionPage: React.FC = () => {
 
             {/* Plan cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {plansLoading && orderedPlans.length === 0 && (
+                <p className="text-sm text-brand-text-secondary col-span-full">Loading plans...</p>
+              )}
+              {!plansLoading && orderedPlans.length === 0 && (
+                <div className="col-span-full text-sm text-brand-text-secondary border border-dashed border-brand-border rounded-lg p-6 text-center">No plans yet. Click <span className="text-white font-medium">New Plan</span> to create one.</div>
+              )}
               {orderedPlans.map(plan => {
                 const price = displayPrice(plan);
                 const isAnnual = billingPeriod === 'Annual';
                 const monthlyEquivalent = isAnnual ? plan.monthlyPrice * (1 - (plan.annualDiscountPct||0)/100) : plan.monthlyPrice;
+                const durationInDays = (() => {
+                  if (plan.durationType === 'days') return plan.maxDuration;
+                  if (plan.durationType === 'months') return plan.maxDuration * 30; // approximate
+                  if (plan.durationType === 'years') return plan.maxDuration * 365; // approximate
+                  return plan.maxDuration;
+                })();
                 return (
                   <motion.div key={plan.id} layout className={`relative rounded-2xl border ${plan.highlight ? 'border-brand-blue/60 shadow-[0_0_0_1px_rgba(93,120,255,0.4),0_4px_30px_-10px_rgba(93,120,255,0.4)]' : 'border-brand-border'} bg-brand-surface p-5 flex flex-col overflow-hidden group`}> 
                     {plan.highlight && <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(93,120,255,0.25),transparent_60%)]"/>}
@@ -537,8 +425,8 @@ const SubscriptionPage: React.FC = () => {
                           <span className="text-3xl font-bold tracking-tight">{price}</span>
                           <span className="text-xs text-brand-text-secondary mb-1">
                             /{isAnnual ? 'year' : 'mo'}
-                            {plan.durationInDays && plan.durationInDays !== 30 && plan.durationInDays !== 365 && (
-                              <span className="ml-1 text-[10px] text-brand-text-tertiary">({plan.durationInDays} days)</span>
+                            {durationInDays && ![30,365].includes(durationInDays) && (
+                              <span className="ml-1 text-[10px] text-brand-text-tertiary">({durationInDays} days)</span>
                             )}
                           </span>
                         </div>
@@ -585,7 +473,25 @@ const SubscriptionPage: React.FC = () => {
                     <div className="flex flex-wrap gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => setEditState({ open: true, plan })} className="text-xs px-3 py-1.5 rounded-lg bg-brand-surface-2 hover:bg-brand-surface border border-brand-border">Edit</button>
                       <button onClick={() => toggleStatus(plan)} className="text-xs px-3 py-1.5 rounded-lg bg-brand-surface-2 hover:bg-brand-surface border border-brand-border">{plan.status === 'active' ? 'Deprecate' : 'Activate'}</button>
-                      <button onClick={() => setPlans(prev => [...prev, { ...plan, id: plan.id + '-copy', name: plan.name + ' Copy', sortOrder: prev.length + 1, status: 'draft' }])} className="text-xs px-3 py-1.5 rounded-lg bg-brand-surface-2 hover:bg-brand-surface border border-brand-border">Duplicate</button>
+                      <button onClick={async () => {
+                        try {
+                          const maxSort = plans.reduce((m,p) => Math.max(m, p.sortOrder || 0), 0);
+                          await SubscriptionPlanService.createPlan({
+                            name: plan.name + ' Copy',
+                            monthlyPrice: plan.monthlyPrice,
+                            annualDiscountPct: plan.annualDiscountPct,
+                            features: plan.features,
+                            featureLimits: plan.featureLimits,
+                            status: 'draft',
+                            subscribers: 0,
+                            trialDays: plan.trialDays,
+                            maxDuration: plan.maxDuration,
+                            durationType: plan.durationType,
+                            highlight: false,
+                            sortOrder: maxSort + 1
+                          });
+                        } catch (e) { console.error(e); }
+                      }} className="text-xs px-3 py-1.5 rounded-lg bg-brand-surface-2 hover:bg-brand-surface border border-brand-border">Duplicate</button>
                       <button onClick={() => deletePlan(plan)} className="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-300 hover:bg-red-500/20 border border-red-500/30">Delete</button>
                     </div>
                   </motion.div>

@@ -5,78 +5,34 @@ import { useRouter, usePathname } from 'next/navigation';
 import { logout } from '@/lib/firebase/auth';
 import { useToast } from '@/hooks/useToast';
 
-// Icons (simplified SVG icons)
-const SubscriptionIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-  </svg>
-);
-
-const UsersIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-  </svg>
-);
-
-const SettingsIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-  </svg>
-);
-
-const DashboardIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z" />
-  </svg>
-);
-
-const LogoutIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-  </svg>
-);
+import { DashboardIcon, PlansIcon, UsersIcon, SettingsIcon, LogoutIcon } from './icons';
 
 interface MenuItem {
   icon: React.ReactNode;
   label: string;
-  path: string;
-  isActive?: boolean;
+  href: string;
+  badge?: string | number;
+  active?: boolean;
 }
 
 interface SuperAdminSidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  navItems?: MenuItem[]; // externally supplied navigation config
 }
 
-const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({ isOpen, onClose }) => {
+const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({ isOpen, onClose, navItems }) => {
   const router = useRouter();
   const pathname = usePathname();
   const { addToast } = useToast();
-
-  const menuItems: MenuItem[] = [
-    {
-      icon: <DashboardIcon />,
-      label: 'Dashboard',
-      path: '/superadmin/dashboard',
-    },
-    {
-      icon: <SubscriptionIcon />,
-      label: 'Subscription',
-      path: '/superadmin/subscription',
-    },
-    {
-      icon: <UsersIcon />,
-      label: 'Subscribed Users',
-      path: '/superadmin/subscribed-users',
-    },
-    {
-      icon: <SettingsIcon />,
-      label: 'Settings',
-      path: '/superadmin/settings',
-    },
+  // fallback if navItems not provided (backwards compatible)
+  const fallback: MenuItem[] = [
+    { icon: <DashboardIcon />, label: 'Dashboard', href: '/superadmin/dashboard' },
+    { icon: <PlansIcon />, label: 'Subscription Plans', href: '/superadmin/subscription' },
+    { icon: <UsersIcon />, label: 'Subscribed Users', href: '/superadmin/subscribed-users' },
+    { icon: <SettingsIcon />, label: 'Settings', href: '/superadmin/settings' },
   ];
+  const menuItems = (navItems && navItems.length ? navItems : fallback).map(m => ({ ...m, active: m.active ?? pathname === m.href }));
 
   const handleLogout = async () => {
     try {
@@ -93,8 +49,8 @@ const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({ isOpen, onClose }
     }
   };
 
-  const handleNavigation = (path: string) => {
-    router.push(path);
+  const handleNavigation = (href: string) => {
+    router.push(href);
     onClose(); // Close sidebar on mobile after navigation
   };
 
@@ -110,45 +66,41 @@ const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({ isOpen, onClose }
       
       {/* Sidebar */}
       <div className={`
-        fixed top-0 left-0 h-screen w-64 bg-indigo-900 text-white transform transition-transform duration-300 ease-in-out z-50 flex flex-col
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0
+        fixed top-0 left-0 h-screen w-64 bg-brand-surface text-brand-text-primary border-r border-brand-border transform transition-transform duration-300 ease-in-out z-50 flex flex-col
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
       `}>
         {/* Logo/Header */}
-        <div className="p-6 border-b border-indigo-800">
+        <div className="p-6 border-b border-brand-border/60">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-              <div className="w-2 h-5 bg-indigo-900 rounded-full transform -skew-x-12" />
-              <div className="w-2 h-6 bg-indigo-900 rounded-full transform -skew-x-12 ml-1" />
+            <div className="w-8 h-8 bg-brand-surface-2 rounded-lg flex items-center justify-center">
+              <div className="w-2 h-5 bg-brand-blue rounded-full transform -skew-x-12" />
+              <div className="w-2 h-6 bg-brand-blue rounded-full transform -skew-x-12 ml-1" />
             </div>
             <div>
-              <h2 className="text-xl font-bold">Super Admin</h2>
-              <p className="text-indigo-300 text-sm">Control Panel</p>
+              <h2 className="text-sm font-semibold tracking-wide text-brand-text-secondary">XPEND</h2>
+              <p className="text-xs text-brand-text-secondary/70">Super Admin</p>
             </div>
           </div>
         </div>
 
         {/* Navigation Menu */}
-        <nav className="flex-1 py-6">
-          <ul className="space-y-2 px-4">
+        <nav className="flex-1 py-4 overflow-y-auto scrollbar-thin scrollbar-thumb-brand-surface-2/60 scrollbar-track-transparent">
+          <ul className="space-y-1 px-3">
             {menuItems.map((item, index) => {
-              const isActive = pathname === item.path;
+              const isActive = item.active;
               return (
                 <li key={index}>
                   <button
-                    onClick={() => handleNavigation(item.path)}
-                    className={`
-                      w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors duration-200
-                      ${isActive 
-                        ? 'bg-indigo-700 text-white border-l-4 border-white' 
-                        : 'text-indigo-200 hover:bg-indigo-800 hover:text-white'
-                      }
-                    `}
+                    onClick={() => handleNavigation(item.href)}
+                    className={`group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors border border-transparent ${isActive ? 'bg-brand-surface-2 text-white border-brand-border shadow-inner' : 'text-brand-text-secondary hover:bg-brand-surface-2/70 hover:text-white'} `}
                   >
-                    <span className={isActive ? 'text-white' : 'text-indigo-300'}>
-                      {item.icon}
-                    </span>
-                    <span className="font-medium">{item.label}</span>
+                    <span className={`shrink-0 p-1 rounded-md ${isActive ? 'bg-brand-blue/20 text-brand-blue' : 'bg-brand-surface-2 text-brand-text-secondary group-hover:text-brand-blue group-hover:bg-brand-blue/10'}`}>{item.icon}</span>
+                    <span className="flex-1 truncate">{item.label}</span>
+                    {item.badge !== undefined && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-surface-2 border border-brand-border text-brand-text-secondary">
+                        {item.badge}
+                      </span>
+                    )}
                   </button>
                 </li>
               );
@@ -157,13 +109,13 @@ const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({ isOpen, onClose }
         </nav>
 
         {/* Footer/Logout */}
-        <div className="p-4 border-t border-indigo-800">
+        <div className="p-4 border-t border-brand-border/60">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-indigo-200 hover:bg-red-600 hover:text-white transition-colors duration-200"
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-brand-text-secondary hover:bg-red-500/10 hover:text-red-300 transition-colors text-sm font-medium"
           >
             <LogoutIcon />
-            <span className="font-medium">Logout</span>
+            <span>Logout</span>
           </button>
         </div>
       </div>
