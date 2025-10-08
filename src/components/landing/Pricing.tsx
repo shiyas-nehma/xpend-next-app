@@ -1,6 +1,6 @@
 
 'use client'
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCurrency } from '@/context/CurrencyContext';
 import { 
     StarIcon, 
@@ -21,6 +21,49 @@ import {
 interface PricingProps {
     onEnterApp: (page: 'signup') => void;
 }
+
+// Client-side only price display to avoid hydration issues
+const PriceDisplay: React.FC<{ 
+    rawPrice: number | string; 
+    period: string; 
+}> = ({ rawPrice, period }) => {
+    const { format } = useCurrency();
+    const [mounted, setMounted] = useState(false);
+    const [formattedPrice, setFormattedPrice] = useState('$0');
+
+    useEffect(() => {
+        setMounted(true);
+        if (typeof rawPrice === 'number') {
+            setFormattedPrice(format(rawPrice, { minimumFractionDigits: 0, maximumFractionDigits: 0 }));
+        } else {
+            setFormattedPrice(rawPrice);
+        }
+    }, [format, rawPrice]);
+
+    if (!mounted) {
+        // SSR fallback
+        if (rawPrice === 'Custom') {
+            return <span className="text-5xl font-bold">Custom</span>;
+        }
+        return (
+            <>
+                <span className="text-5xl font-bold">$0</span>
+                <span className="text-brand-text-secondary">/{period}</span>
+            </>
+        );
+    }
+
+    if (rawPrice === 'Custom') {
+        return <span className="text-5xl font-bold">Custom</span>;
+    }
+
+    return (
+        <>
+            <span className="text-5xl font-bold">{formattedPrice}</span>
+            <span className="text-brand-text-secondary">/{period}</span>
+        </>
+    );
+};
 
 const featureIcons = {
     "Basic Transaction Tracking": <ChartLineIcon className="w-4 h-4 text-white/60" />,
@@ -104,7 +147,11 @@ const plans = [
 type Plan = typeof plans[0];
 type FeatureText = keyof typeof featureIcons;
 
-const PricingCard: React.FC<{ plan: Plan; price: string; }> = ({ plan, price }) => {
+const PricingCard: React.FC<{ 
+    plan: Plan; 
+    rawPrice: number | string; 
+    period: string; 
+}> = ({ plan, rawPrice, period }) => {
     return (
         <div className={`relative overflow-hidden rounded-2xl border p-8 flex flex-col h-full bg-[#1C1C1C]/70 backdrop-blur-xl ${plan.isPopular ? 'border-brand-blue' : 'border-brand-border'}`}>
             <div className={`absolute -top-24 -left-24 w-72 h-72 rounded-full blur-3xl opacity-20 bg-gradient-radial ${plan.glowClass} to-transparent`}></div>
@@ -122,11 +169,7 @@ const PricingCard: React.FC<{ plan: Plan; price: string; }> = ({ plan, price }) 
                 <h3 className="text-2xl font-semibold text-brand-text-primary mt-6">{plan.name}</h3>
                 
                 <div className="mt-4">
-                    {price === 'Custom' ? (
-                        <span className="text-5xl font-bold">{price}</span>
-                    ) : (
-                        (() => { const [val, per] = price.split('/'); return <><span className="text-5xl font-bold">{val}</span><span className="text-brand-text-secondary">/{per}</span></>; })()
-                    )}
+                    <PriceDisplay rawPrice={rawPrice} period={period} />
                 </div>
                 
                 <p className="text-sm text-brand-text-secondary mt-2 h-12">{plan.description}</p>
@@ -173,14 +216,14 @@ const PricingToggle: React.FC<{isAnnual: boolean, setIsAnnual: (isAnnual: boolea
 
 const Pricing: React.FC<PricingProps> = ({ onEnterApp }) => {
     const [isAnnual, setIsAnnual] = useState(false);
-    const { format } = useCurrency();
 
-    const getPrice = (plan: Plan) => {
-        if (plan.price.monthly === 'Custom') return 'Custom';
-        const raw = isAnnual ? plan.price.annual : plan.price.monthly;
+    const getPriceData = (plan: Plan) => {
+        if (plan.price.monthly === 'Custom') {
+            return { rawPrice: 'Custom', period: '' };
+        }
+        const rawPrice = isAnnual ? plan.price.annual : plan.price.monthly;
         const period = isAnnual ? 'year' : 'month';
-        const value = typeof raw === 'number' ? format(raw, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : raw;
-        return `${value}/${period}`;
+        return { rawPrice, period };
     };
 
     return (
@@ -190,9 +233,17 @@ const Pricing: React.FC<PricingProps> = ({ onEnterApp }) => {
                     <PricingToggle isAnnual={isAnnual} setIsAnnual={setIsAnnual} />
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
-                    {plans.map(plan => (
-                        <PricingCard key={plan.name} plan={plan} price={getPrice(plan)} />
-                    ))}
+                    {plans.map(plan => {
+                        const { rawPrice, period } = getPriceData(plan);
+                        return (
+                            <PricingCard 
+                                key={plan.name} 
+                                plan={plan} 
+                                rawPrice={rawPrice} 
+                                period={period} 
+                            />
+                        );
+                    })}
                 </div>
                 <p className="text-center text-sm text-brand-text-secondary mt-8">
                     Start your journey risk free - No credit card needed

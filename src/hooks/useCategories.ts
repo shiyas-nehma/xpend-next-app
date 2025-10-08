@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { CategoryService } from '@/lib/firebase/categoryService';
+import { isSuperAdmin } from '@/lib/firebase/auth';
 import type { Category } from '@/types';
 import { useToast } from './useToast';
 import { useAuth } from '@/context/AuthContext';
@@ -30,6 +31,20 @@ export const useCategories = () => {
       setLoading(false);
       return;
     }
+
+    // Skip data fetching if user is a superadmin
+    try {
+      const isAdmin = await isSuperAdmin();
+      if (isAdmin) {
+        setCategories([]);
+        setLoading(false);
+        return;
+      }
+    } catch (adminCheckError) {
+      // If admin check fails, continue with regular flow
+      console.log('Admin check failed, continuing with regular user flow');
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -38,7 +53,10 @@ export const useCategories = () => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load categories';
       setError(errorMessage);
-      addToast('Failed to load categories', 'error');
+      // Don't show toast for superadmin users or during auth transitions
+      if (user && !authLoading) {
+        addToast('Failed to load categories', 'error');
+      }
       console.error('Error loading categories:', err);
     } finally {
       setLoading(false);

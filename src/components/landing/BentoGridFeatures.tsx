@@ -1,6 +1,6 @@
 
 'use client'
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useCurrency } from '@/context/CurrencyContext';
 import { AIIcon, DocumentTextIcon, MagnifyingGlassIcon, UserCircleIcon, GoalIcon } from '@/components/icons/NavIcons';
 
@@ -14,13 +14,34 @@ const BentoCard: React.FC<{
   </div>
 );
 
+// Client-side only currency formatter to avoid hydration issues
+const CurrencyDisplay: React.FC<{ 
+  amount: number; 
+  options?: Intl.NumberFormatOptions;
+  transform?: (formatted: string) => string;
+}> = ({ amount, options, transform }) => {
+  const { format } = useCurrency();
+  const [formattedAmount, setFormattedAmount] = useState('$0.00');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    let formatted = format(amount, options);
+    if (transform) {
+      formatted = transform(formatted);
+    }
+    setFormattedAmount(formatted);
+  }, [format, amount, options, transform]);
+
+  if (!mounted) {
+    return <span>$0.00</span>;
+  }
+
+  return <span>{formattedAmount}</span>;
+};
+
 // Specific feature cards
 const AIChatCard: React.FC = () => {
-    const { format } = useCurrency();
-    const monthlyTotal = format(1234.56);
-    const groceries = format(450.75);
-    const entertainment = format(250);
-    const shopping = format(320);
     return (
         <BentoCard className="h-full">
             <div className="flex-grow flex flex-col">
@@ -36,11 +57,11 @@ const AIChatCard: React.FC = () => {
                             <AIIcon className="w-5 h-5 text-brand-text-secondary" />
                         </div>
                         <div className="bg-brand-surface-2 rounded-lg p-3 space-y-2">
-                            <p>Last month, you spent a total of <strong>{monthlyTotal}</strong>. Your top categories were:</p>
+                            <p>Last month, you spent a total of <strong><CurrencyDisplay amount={1234.56} /></strong>. Your top categories were:</p>
                             <ul className="list-disc list-inside text-brand-text-secondary space-y-1">
-                                <li>Groceries: {groceries}</li>
-                                <li>Entertainment: {entertainment}</li>
-                                <li>Shopping: {shopping}</li>
+                                <li>Groceries: <CurrencyDisplay amount={450.75} /></li>
+                                <li>Entertainment: <CurrencyDisplay amount={250} /></li>
+                                <li>Shopping: <CurrencyDisplay amount={320} /></li>
                             </ul>
                         </div>
                     </div>
@@ -61,10 +82,6 @@ const AIChatCard: React.FC = () => {
 };
 
 const TransactionListCard: React.FC = () => {
-    const { format } = useCurrency();
-    const groceries = format(112.5, { signDisplay: 'always' }).replace('+', '-'); // ensure negative for expense
-    const freelance = format(850, { signDisplay: 'always' });
-    const movie = format(35, { signDisplay: 'always' }).replace('+', '-');
     return (
         <BentoCard>
             <h3 className="text-xl font-bold text-brand-text-primary mb-2">Unified Transactions</h3>
@@ -79,21 +96,21 @@ const TransactionListCard: React.FC = () => {
                         <span className="text-xl">🛒</span>
                         <div className="text-xs flex-grow">
                             <p className="font-semibold text-brand-text-primary">Weekly Groceries</p>
-                            <p className="text-red-400">-{groceries.replace('-', '')}</p>
+                            <p className="text-red-400">-<CurrencyDisplay amount={112.5} /></p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 bg-brand-surface/70 p-2 rounded-md border border-brand-border">
                         <span className="text-xl">💻</span>
                         <div className="text-xs flex-grow">
                             <p className="font-semibold text-brand-text-primary">Freelance Project</p>
-                            <p className="text-blue-400">{freelance}</p>
+                            <p className="text-blue-400">+<CurrencyDisplay amount={850} /></p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 bg-brand-surface/70 p-2 rounded-md border border-brand-border opacity-60">
                         <span className="text-xl">🎬</span>
                         <div className="text-xs flex-grow">
                             <p className="font-semibold text-brand-text-primary">Movie Tickets</p>
-                            <p className="text-red-400">-{movie.replace('-', '')}</p>
+                            <p className="text-red-400">-<CurrencyDisplay amount={35} /></p>
                         </div>
                     </div>
                 </div>
@@ -103,9 +120,6 @@ const TransactionListCard: React.FC = () => {
 };
 
 const BudgetControlCard: React.FC = () => {
-    const { format } = useCurrency();
-    const spent = format(450.75);
-    const total = format(600);
     return (
         <BentoCard>
             <h3 className="text-lg font-bold text-brand-text-primary mb-1">Smart Budgeting</h3>
@@ -113,7 +127,9 @@ const BudgetControlCard: React.FC = () => {
             <div className="bg-brand-bg/50 rounded-lg p-3 border border-brand-border mt-auto">
                 <div className="flex justify-between items-center mb-1">
                     <span className="text-xs font-semibold">Food Budget</span>
-                    <span className="text-xs font-bold text-yellow-400">{spent} / {total}</span>
+                    <span className="text-xs font-bold text-yellow-400">
+                        <CurrencyDisplay amount={450.75} /> / <CurrencyDisplay amount={600} />
+                    </span>
                 </div>
                 <div className="mock-slider-track">
                     <div className="mock-slider-progress w-[75%] bg-gradient-to-r from-yellow-500 to-orange-500"></div>

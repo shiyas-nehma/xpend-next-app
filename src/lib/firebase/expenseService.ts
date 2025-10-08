@@ -96,6 +96,9 @@ export class ExpenseService {
 
   static async getExpenses(userId: string, categories: Category[]): Promise<Expense[]> {
     try {
+      // Ensure categories is always an array
+      const safeCategories = Array.isArray(categories) ? categories : [];
+      
       const q = query(
         collection(db, COLLECTION_NAME),
         where('userId', '==', userId)
@@ -103,9 +106,15 @@ export class ExpenseService {
       const snapshot = await getDocs(q);
       const expenses: Expense[] = [];
       snapshot.forEach(docSnap => {
-        const data = docSnap.data() as FirebaseExpense;
-        const category = categories.find(c => c.docId === data.categoryId);
-        expenses.push(this.buildExpense(docSnap.id, data, category));
+        try {
+          const data = docSnap.data() as FirebaseExpense;
+          if (!data) return; // Skip invalid data
+          const category = safeCategories.find(c => c && c.docId === data.categoryId);
+          expenses.push(this.buildExpense(docSnap.id, data, category));
+        } catch (buildError) {
+          console.error('Error building expense item:', buildError);
+          // Continue processing other items instead of failing completely
+        }
       });
       // Sort by date descending
       expenses.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -117,17 +126,40 @@ export class ExpenseService {
   }
 
   static onExpensesChange(userId: string, categories: Category[], callback: (expenses: Expense[]) => void) {
-    const q = query(collection(db, COLLECTION_NAME), where('userId', '==', userId));
-    return onSnapshot(q, (snapshot) => {
-      const expenses: Expense[] = [];
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data() as FirebaseExpense;
-        const category = categories.find(c => c.docId === data.categoryId);
-        expenses.push(this.buildExpense(docSnap.id, data, category));
+    try {
+      // Ensure categories is always an array
+      const safeCategories = Array.isArray(categories) ? categories : [];
+      
+      const q = query(collection(db, COLLECTION_NAME), where('userId', '==', userId));
+      return onSnapshot(q, (snapshot) => {
+        try {
+          const expenses: Expense[] = [];
+          snapshot.forEach(docSnap => {
+            try {
+              const data = docSnap.data() as FirebaseExpense;
+              if (!data) return; // Skip invalid data
+              const category = safeCategories.find(c => c && c.docId === data.categoryId);
+              expenses.push(this.buildExpense(docSnap.id, data, category));
+            } catch (buildError) {
+              console.error('Error building expense item:', buildError);
+              // Continue processing other items instead of failing completely
+            }
+          });
+          expenses.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          callback(expenses);
+        } catch (snapshotError) {
+          console.error('Error processing expense snapshot:', snapshotError);
+          callback([]); // Return empty array on error
+        }
+      }, (error) => {
+        console.error('Error listening to expense changes:', error);
+        callback([]); // Return empty array on error
       });
-      expenses.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      callback(expenses);
-    });
+    } catch (e) {
+      console.error('Error setting up expense listener:', e);
+      // Return a no-op unsubscribe function
+      return () => {};
+    }
   }
 
   static async addExpense(expenseData: Omit<Expense, 'id' | 'docId'>, userId: string): Promise<Expense> {

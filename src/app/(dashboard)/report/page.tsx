@@ -174,16 +174,20 @@ const ReportPage: React.FC = () => {
 
     const filterBySearch = (item: Income | Expense) => {
       if (!searchQuery) return true;
-      return item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-             item.category.name.toLowerCase().includes(searchQuery.toLowerCase());
+      return item.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+             item.category?.name?.toLowerCase().includes(searchQuery.toLowerCase());
     };
 
-    const filteredIncomes = incomes.filter(i => 
-      filterByDate(i) && filterByCategory(i) && filterBySearch(i)
+    // Ensure arrays are always valid
+    const safeIncomes = Array.isArray(incomes) ? incomes : [];
+    const safeExpenses = Array.isArray(expenses) ? expenses : [];
+
+    const filteredIncomes = safeIncomes.filter(i => 
+      i && filterByDate(i) && filterByCategory(i) && filterBySearch(i)
     );
     
-    const filteredExpenses = expenses.filter(e => 
-      filterByDate(e) && filterByCategory(e) && filterBySearch(e)
+    const filteredExpenses = safeExpenses.filter(e => 
+      e && filterByDate(e) && filterByCategory(e) && filterBySearch(e)
     );
 
     return { filteredIncomes, filteredExpenses };
@@ -209,12 +213,12 @@ const ReportPage: React.FC = () => {
     prevStartDate.setDate(prevStartDate.getDate() - periodDays);
     const prevEndDate = new Date(startDate);
     
-    const prevIncomes = incomes.filter(i => {
+    const prevIncomes = safeIncomes.filter(i => {
       const date = new Date(i.date);
       return date >= prevStartDate && date < prevEndDate;
     });
     
-    const prevExpenses = expenses.filter(e => {
+    const prevExpenses = safeExpenses.filter(e => {
       const date = new Date(e.date);
       return date >= prevStartDate && date < prevEndDate;
     });

@@ -644,21 +644,26 @@ const IncomePage: React.FC = () => {
     const { addToast } = useToast();
     
     const filteredIncomes = useMemo(() => {
-        return incomes
+        // Ensure incomes is always an array
+        const safeIncomes = Array.isArray(incomes) ? incomes : [];
+        return safeIncomes
             .filter(income => {
                 if (activeFilter === 'All') return true;
                 return income.paymentMethod === activeFilter;
             })
             .filter(income =>
-                income.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                income.category.name.toLowerCase().includes(searchQuery.toLowerCase())
+                income.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                income.category?.name?.toLowerCase().includes(searchQuery.toLowerCase())
             )
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [incomes, activeFilter, searchQuery]);
 
     const groupedIncomes = useMemo(() => {
         const groups: Record<string, Income[]> = {};
-        filteredIncomes.forEach(income => {
+        // Ensure filteredIncomes is always an array
+        const safeFilteredIncomes = Array.isArray(filteredIncomes) ? filteredIncomes : [];
+        safeFilteredIncomes.forEach(income => {
+            if (!income || !income.date) return; // Skip invalid income items
             const dateHeader = getRelativeDateHeader(income.date);
             if (!groups[dateHeader]) {
                 groups[dateHeader] = [];

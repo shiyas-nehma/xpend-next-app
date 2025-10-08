@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Expense, Category } from '@/types';
 import { ExpenseService } from '@/lib/firebase/expenseService';
+import { isSuperAdmin } from '@/lib/firebase/auth';
 import { useToast } from './useToast';
 import { useAuth } from '@/context/AuthContext';
 
@@ -23,14 +24,30 @@ export const useExpenses = (categories: Category[]) => {
       setLoading(false);
       return;
     }
+
+    // Skip data fetching if user is a superadmin
+    try {
+      const isAdmin = await isSuperAdmin();
+      if (isAdmin) {
+        setExpenses([]);
+        setLoading(false);
+        return;
+      }
+    } catch (adminCheckError) {
+      // If admin check fails, continue with regular flow
+      console.log('Admin check failed, continuing with regular user flow');
+    }
+
     try {
       setLoading(true);
       setError(null);
       const data = await ExpenseService.getExpenses(userId, categories);
+      // Ensure data is always an array
+      const safeData = Array.isArray(data) ? data : [];
       // De-duplicate by docId to avoid duplicate React keys in case of race conditions
       const seen = new Set<string>();
-      const unique = data.filter(e => {
-        if (!e.docId) return true; // keep if no docId
+      const unique = safeData.filter(e => {
+        if (!e || !e.docId) return true; // keep if no docId
         if (seen.has(e.docId)) return false;
         seen.add(e.docId);
         return true;
@@ -40,7 +57,12 @@ export const useExpenses = (categories: Category[]) => {
       console.error('Error loading expenses', e);
       const message = e instanceof Error ? e.message : 'Failed to load expenses';
       setError(message);
-      addToast(message, 'error');
+      // Don't show toast for superadmin users or during auth transitions
+      if (user && !authLoading) {
+        addToast(message, 'error');
+      }
+      // Ensure expenses is always an array even on error
+      setExpenses([]);
     } finally {
       setLoading(false);
     }
@@ -96,20 +118,46 @@ export const useExpenses = (categories: Category[]) => {
   // Real-time listener
   useEffect(() => {
     if (authLoading || !user) return; // skip listener when logged out
-    const unsubscribe = ExpenseService.onExpensesChange(userId, categories, (updated) => {
-      // Same de-duplication on snapshot
-      const seen = new Set<string>();
-      const unique = updated.filter(e => {
-        if (!e.docId) return true;
-        if (seen.has(e.docId)) return false;
-        seen.add(e.docId);
-        return true;
+
+    // Skip real-time listener for superadmins
+    const checkAdminAndSetupListener = async () => {
+      try {
+        const isAdmin = await isSuperAdmin();
+        if (isAdmin) {
+          return;
+        }
+      } catch (adminCheckError) {
+        console.log('Admin check failed, continuing with regular user flow');
+      }
+
+      const unsubscribe = ExpenseService.onExpensesChange(userId, categories, (updated) => {
+        // Ensure updated is always an array
+        const safeUpdated = Array.isArray(updated) ? updated : [];
+        // Same de-duplication on snapshot
+        const seen = new Set<string>();
+        const unique = safeUpdated.filter(e => {
+          if (!e || !e.docId) return true;
+          if (seen.has(e.docId)) return false;
+          seen.add(e.docId);
+          return true;
+        });
+        setExpenses(unique);
+        setLoading(false);
+        setError(null);
       });
-      setExpenses(unique);
-      setLoading(false);
-      setError(null);
+      return unsubscribe;
+    };
+
+    let unsubscribeRef: (() => void) | undefined;
+    checkAdminAndSetupListener().then(unsubscribe => {
+      unsubscribeRef = unsubscribe;
     });
-    return () => unsubscribe();
+
+    return () => {
+      if (unsubscribeRef) {
+        unsubscribeRef();
+      }
+    };
   }, [categories, userId, user, authLoading]);
 
   return {

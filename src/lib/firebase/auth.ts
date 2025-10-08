@@ -106,7 +106,9 @@ export const signIn = async ({ email, password }: LoginData): Promise<{ user: Us
     const userDoc = await getDoc(doc(db, 'users', user.uid));
     
     if (!userDoc.exists()) {
-      throw new Error('User data not found');
+      // Sign out the user and throw error
+      await signOut(auth);
+      throw new Error('User data not found. Please contact support.');
     }
     
     const userData = userDoc.data();
@@ -128,7 +130,8 @@ export const signIn = async ({ email, password }: LoginData): Promise<{ user: Us
     return { user, userData };
   } catch (error: any) {
     console.error('Regular user login error:', error);
-    throw new Error(error.message || 'Failed to sign in');
+    // Ensure we always throw an error to be caught by the UI
+    throw error;
   }
 };
 
@@ -196,7 +199,8 @@ export const signInWithGoogle = async (): Promise<{ user: User; userData: any }>
     return { user, userData };
   } catch (error: any) {
     console.error('Google sign-in error:', error);
-    throw new Error(error.message || 'Failed to sign in with Google');
+    // Ensure we always throw an error to be caught by the UI
+    throw error;
   }
 };
 
@@ -365,6 +369,10 @@ export const getAuthErrorMessage = (errorCode: string): string => {
       return 'No account found with this email address.';
     case 'auth/wrong-password':
       return 'Incorrect password.';
+    case 'auth/invalid-credential':
+      return 'Invalid email or password.';
+    case 'auth/invalid-login-credentials':
+      return 'Invalid email or password.';
     case 'auth/email-already-in-use':
       return 'An account with this email already exists.';
     case 'auth/weak-password':
@@ -375,6 +383,10 @@ export const getAuthErrorMessage = (errorCode: string): string => {
       return 'Too many failed attempts. Please try again later.';
     case 'auth/popup-closed-by-user':
       return 'Sign-in popup was closed. Please try again.';
+    case 'auth/cancelled-popup-request':
+      return 'Sign-in was cancelled. Please try again.';
+    case 'auth/network-request-failed':
+      return 'Network error. Please check your connection and try again.';
     default:
       return 'An error occurred. Please try again.';
   }

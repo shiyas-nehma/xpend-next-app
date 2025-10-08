@@ -776,21 +776,26 @@ const ExpensePage: React.FC = () => {
     const { addToast } = useToast();
     
     const filteredExpenses = useMemo(() => {
-        return expenses
+        // Ensure expenses is always an array
+        const safeExpenses = Array.isArray(expenses) ? expenses : [];
+        return safeExpenses
             .filter(expense => {
                 if (activeFilter === 'All') return true;
                 return expense.paymentMethod === activeFilter;
             })
             .filter(expense =>
-                expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                expense.category.name.toLowerCase().includes(searchQuery.toLowerCase())
+                expense.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                expense.category?.name?.toLowerCase().includes(searchQuery.toLowerCase())
             )
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [expenses, activeFilter, searchQuery]);
 
     const groupedExpenses = useMemo(() => {
         const groups: Record<string, Expense[]> = {};
-        filteredExpenses.forEach(expense => {
+        // Ensure filteredExpenses is always an array
+        const safeFilteredExpenses = Array.isArray(filteredExpenses) ? filteredExpenses : [];
+        safeFilteredExpenses.forEach(expense => {
+            if (!expense || !expense.date) return; // Skip invalid expense items
             const dateHeader = getRelativeDateHeader(expense.date);
             if (!groups[dateHeader]) {
                 groups[dateHeader] = [];

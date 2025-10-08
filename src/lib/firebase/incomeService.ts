@@ -96,6 +96,9 @@ export class IncomeService {
 
   static async getIncomes(userId: string, categories: Category[]): Promise<Income[]> {
     try {
+      // Ensure categories is always an array
+      const safeCategories = Array.isArray(categories) ? categories : [];
+      
       const q = query(
         collection(db, COLLECTION_NAME),
         where('userId', '==', userId)
@@ -103,9 +106,15 @@ export class IncomeService {
       const snapshot = await getDocs(q);
       const incomes: Income[] = [];
       snapshot.forEach(docSnap => {
-        const data = docSnap.data() as FirebaseIncome;
-        const category = categories.find(c => c.docId === data.categoryId);
-        incomes.push(this.buildIncome(docSnap.id, data, category));
+        try {
+          const data = docSnap.data() as FirebaseIncome;
+          if (!data) return; // Skip invalid data
+          const category = safeCategories.find(c => c && c.docId === data.categoryId);
+          incomes.push(this.buildIncome(docSnap.id, data, category));
+        } catch (buildError) {
+          console.error('Error building income item:', buildError);
+          // Continue processing other items instead of failing completely
+        }
       });
       // Sort by date descending
       incomes.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -120,10 +129,19 @@ export class IncomeService {
     const q = query(collection(db, COLLECTION_NAME), where('userId', '==', userId));
     return onSnapshot(q, (snapshot) => {
       const incomes: Income[] = [];
+      // Ensure categories is always an array
+      const safeCategories = Array.isArray(categories) ? categories : [];
+      
       snapshot.forEach(docSnap => {
-        const data = docSnap.data() as FirebaseIncome;
-        const category = categories.find(c => c.docId === data.categoryId);
-        incomes.push(this.buildIncome(docSnap.id, data, category));
+        try {
+          const data = docSnap.data() as FirebaseIncome;
+          if (!data) return; // Skip invalid data
+          const category = safeCategories.find(c => c && c.docId === data.categoryId);
+          incomes.push(this.buildIncome(docSnap.id, data, category));
+        } catch (buildError) {
+          console.error('Error building income item in snapshot:', buildError);
+          // Continue processing other items instead of failing completely
+        }
       });
       incomes.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       callback(incomes);

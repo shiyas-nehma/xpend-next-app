@@ -51,9 +51,28 @@ export default function LoginPage() {
       addToast('Welcome back!', 'success');
       router.push('/dashboard');
     } catch (error: any) {
-      const errorMessage = getAuthErrorMessage(error.code) || error.message;
+      console.error('Login error:', error); // Debug log
+      
+      let errorMessage = 'Login failed. Please try again.';
+      
+      // Handle Firebase auth errors
+      if (error.code) {
+        errorMessage = getAuthErrorMessage(error.code);
+      } else if (error.message) {
+        // Handle custom errors from our auth functions
+        errorMessage = error.message;
+      }
+      
       setError(errorMessage);
       addToast(errorMessage, 'error');
+      
+      // Special handling for access denied cases - redirect to superadmin login
+      if (error.message && error.message.includes('Access denied')) {
+        setTimeout(() => {
+          addToast('Redirecting to superadmin login...', 'info');
+          router.push('/superadmin/login');
+        }, 2000);
+      }
     } finally {
       setLoading(false);
     }
@@ -68,9 +87,28 @@ export default function LoginPage() {
       addToast('Welcome back!', 'success');
       router.push('/dashboard');
     } catch (error: any) {
-      const errorMessage = getAuthErrorMessage(error.code) || error.message;
+      console.error('Google login error:', error); // Debug log
+      
+      let errorMessage = 'Google sign-in failed. Please try again.';
+      
+      // Handle Firebase auth errors
+      if (error.code) {
+        errorMessage = getAuthErrorMessage(error.code);
+      } else if (error.message) {
+        // Handle custom errors from our auth functions
+        errorMessage = error.message;
+      }
+      
       setError(errorMessage);
       addToast(errorMessage, 'error');
+      
+      // Special handling for access denied cases - redirect to superadmin login
+      if (error.message && error.message.includes('Access denied')) {
+        setTimeout(() => {
+          addToast('Redirecting to superadmin login...', 'info');
+          router.push('/superadmin/login');
+        }, 2000);
+      }
     } finally {
       setLoading(false);
     }
