@@ -12,9 +12,36 @@ interface CategoryModalProps {
   category: Category | null;
 }
 
+// Extended emoji set for richer categorization (expenses & incomes)
 const EMOJIS = [
-  '🛒', '🍔', '☕', '🏠', '💡', '💧', '🚗', '✈️', '🎁', '🎬', '👕', '💊',
-  '💰', '💸', '📈', '💼', '💻', '📄', '🎓', '🏆', '🎉', '🐶', '🐱', '🔨'
+  // Essentials & Living
+  '🛒','🍔','☕','🥗','🍱','🍕','🍻','🍷','🏠','💡','🔥','💧','🧹','🧴','🛏️',
+  // Transport & Travel
+  '🚗','🛞','⛽','🛠️','🅿️','✈️','🚆','🛳️','🛵','🚲',
+  // Shopping & Personal
+  '👕','👗','🎁','💄','🧴','�','🎒',
+  // Health & Fitness
+  '💊','🩺','🦷','🏋️','🏃','🧘','🥼',
+  // Finance / Income / Work
+  '💰','💵','💳','💸','🏦','📈','📉','🧾','💼','🪙','📝','🧮','🗂️','🧑\u200d💻','💻','🖥️','�️',
+  // Education & Growth
+  '🎓','📚','🧠','🧪','🎨','🛎️',
+  // Entertainment & Leisure
+  '🎬','🎮','�','🎟️','🎤','🎨','🎲','📺','📷','🎹','🎯','⚽','🏀','🏈','⚾','🎳','�🏆','🎉','🎪','🪩',
+  // Family & Relationships
+  '👶','🧒','🧑','👨','👩','🧓','�','💍','🍼',
+  // Pets & Animals
+  '🐶','🐱','🐾','🐟','🦜','🐰',
+  // Home & Utilities / Maintenance
+  '🔨','🪛','🧰','🪜','🛠️','🧱','🖼️','🧺','🚿','🪠',
+  // Goals / Savings / Investments
+  '🏦','🏛️','🏗️','🏔️','🎯','📊','💎','🪙','🧱','🌱','🌳','🚀','⭐',
+  // Travel / Experiences
+  '🗺️','🧳','🏖️','🏝️','🏨','🛫','🛬','🗽','🗿','⛰️','🏜️','🏕️','🛎️',
+  // Technology / Subscriptions
+  '📱','📲','🖥️','🖱️','⌨️','🔌','🧩','💿','🛰️','📡','🎛️','🔊','🕹️',
+  // Misc / Other
+  '💡','⚙️','🔒','📦','🛒','🧾','🏷️'
 ];
 
 const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, onSave, category }) => {
@@ -162,7 +189,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, onSave, 
                         {icon}
                         </button>
                         {isPickerOpen && (
-                        <div ref={pickerRef} className="absolute top-full mt-2 w-64 bg-brand-surface-2 border border-brand-border rounded-lg shadow-lg p-2 z-20 grid grid-cols-6 gap-2">
+                        <div ref={pickerRef} className="absolute top-full mt-2 w-72 max-h-56 overflow-y-auto bg-brand-surface-2 border border-brand-border rounded-lg shadow-lg p-2 z-20 grid grid-cols-6 gap-2 scroll-smooth">
                             {EMOJIS.map((emoji) => (
                             <button
                                 key={emoji}
