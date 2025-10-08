@@ -183,16 +183,32 @@ export const useCategories = () => {
 
     if (authLoading || !user) return; // wait for auth or skip if not logged in
 
-    try {
-      unsubscribe = CategoryService.onCategoriesChange(userId, (updatedCategories) => {
-        setCategories(updatedCategories);
-        setLoading(false);
-        setError(null);
-      });
-    } catch (err) {
-      console.error('Error setting up real-time listener:', err);
-      loadCategories();
-    }
+    // Skip real-time listener for superadmins
+    const checkAdminAndSetupListener = async () => {
+      try {
+        const isAdmin = await isSuperAdmin();
+        if (isAdmin) {
+          return;
+        }
+      } catch (adminCheckError) {
+        console.log('Admin check failed, continuing with regular user flow');
+      }
+
+      try {
+        unsubscribe = CategoryService.onCategoriesChange(userId, (updatedCategories) => {
+          setCategories(updatedCategories);
+          setLoading(false);
+          setError(null);
+        });
+      } catch (listenerError: any) {
+        console.log('Failed to set up categories real-time listener, falling back to one-time load:', listenerError?.message);
+        loadCategories();
+      }
+    };
+
+    checkAdminAndSetupListener().catch(error => {
+      console.log('Categories real-time listener setup failed:', error?.message);
+    });
 
     return () => {
       if (unsubscribe) unsubscribe();

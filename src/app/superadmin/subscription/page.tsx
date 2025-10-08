@@ -6,15 +6,32 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, 
 import { useCurrency } from '@/context/CurrencyContext';
 
 // Types
+interface FeatureLimits {
+  maxCategories: number;
+  maxIncomes: number;
+  maxExpenses: number;
+  maxAccounts: number;
+  maxBudgets: number;
+  analyticsAccess: boolean;
+  reportGeneration: boolean;
+  dataExport: boolean;
+  apiAccess: boolean;
+  prioritySupport: boolean;
+  customIntegrations: boolean;
+}
+
 interface Plan {
   id: string;
   name: string;
   monthlyPrice: number; // base monthly
   annualDiscountPct?: number; // optional discount for annual
   features: string[];
+  featureLimits: FeatureLimits;
   status: 'active' | 'draft' | 'deprecated';
   subscribers: number; // active subscribers on this plan
   trialDays: number;
+  maxDuration: number; // in days
+  durationType: 'days' | 'months' | 'years';
   highlight?: boolean; // UI highlight
   sortOrder: number;
 }
@@ -49,12 +66,46 @@ const Segmented: React.FC<{ options: string[]; value: string; onChange: (v: stri
   </div>
 );
 
-// Simple modal for plan create/edit
+// Enhanced modal for plan create/edit with comprehensive features
 const PlanModal: React.FC<{ state: EditState; onClose: () => void; onSave: (plan: Partial<Plan>) => void; } > = ({ state, onClose, onSave }) => {
   const editing = !!state.plan;
-  const [form, setForm] = useState<Partial<Plan>>(() => state.plan ? { ...state.plan } : { name: '', monthlyPrice: 0, annualDiscountPct: 20, features: [''], status: 'draft', subscribers: 0, trialDays: 14, sortOrder: 0 });
+  const [form, setForm] = useState<Partial<Plan>>(() => state.plan ? { ...state.plan } : { 
+    name: '', 
+    monthlyPrice: 0, 
+    annualDiscountPct: 20, 
+    features: [''], 
+    featureLimits: {
+      maxCategories: 10,
+      maxIncomes: 50,
+      maxExpenses: 50,
+      maxAccounts: 5,
+      maxBudgets: 10,
+      analyticsAccess: false,
+      reportGeneration: true,
+      dataExport: false,
+      apiAccess: false,
+      prioritySupport: false,
+      customIntegrations: false,
+    },
+    status: 'draft', 
+    subscribers: 0, 
+    trialDays: 14,
+    maxDuration: 30,
+    durationType: 'days',
+    sortOrder: 0 
+  });
 
   const update = (key: keyof Plan, value: any) => setForm(f => ({ ...f, [key]: value }));
+  
+  const updateFeatureLimit = (key: keyof FeatureLimits, value: any) => {
+    setForm(f => ({ 
+      ...f, 
+      featureLimits: { 
+        ...f.featureLimits!, 
+        [key]: value 
+      } 
+    }));
+  };
 
   const updateFeature = (i: number, val: string) => {
     setForm(f => ({ ...f, features: (f.features || []).map((ft, idx) => idx === i ? val : ft) }));
@@ -73,39 +124,22 @@ const PlanModal: React.FC<{ state: EditState; onClose: () => void; onSave: (plan
       {state.open && (
         <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-          <motion.div initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} transition={{ type: 'spring', stiffness: 210, damping: 24 }} className="relative w-full max-w-2xl bg-brand-surface border border-brand-border rounded-2xl p-6 space-y-5">
+          <motion.div initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} transition={{ type: 'spring', stiffness: 210, damping: 24 }} className="relative w-full max-w-4xl bg-brand-surface border border-brand-border rounded-2xl p-6 space-y-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-xl font-semibold">{editing ? 'Edit Plan' : 'Create Plan'}</h3>
-                <p className="text-sm text-brand-text-secondary">Configure pricing & features</p>
+                <p className="text-sm text-brand-text-secondary">Configure pricing, duration, and feature limits</p>
               </div>
               <button onClick={onClose} className="text-brand-text-secondary hover:text-white text-sm">✕</button>
             </div>
-            <div className="grid md:grid-cols-2 gap-5">
-              <div className="space-y-4">
+
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-brand-text-primary border-b border-brand-border pb-2">Basic Information</h4>
+              <div className="grid md:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-xs font-medium text-brand-text-secondary block mb-1">Name</label>
-                  <input value={form.name || ''} onChange={e => update('name', e.target.value)} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/50" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-brand-text-secondary block mb-1">Monthly Price</label>
-                    <input type="number" value={form.monthlyPrice ?? 0} onChange={e => update('monthlyPrice', parseFloat(e.target.value))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-brand-text-secondary block mb-1">Annual Discount %</label>
-                    <input type="number" value={form.annualDiscountPct ?? 0} onChange={e => update('annualDiscountPct', parseFloat(e.target.value))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-brand-text-secondary block mb-1">Trial Days</label>
-                    <input type="number" value={form.trialDays ?? 0} onChange={e => update('trialDays', parseInt(e.target.value))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-brand-text-secondary block mb-1">Sort Order</label>
-                    <input type="number" value={form.sortOrder ?? 0} onChange={e => update('sortOrder', parseInt(e.target.value))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
-                  </div>
+                  <label className="text-xs font-medium text-brand-text-secondary block mb-1">Plan Name</label>
+                  <input value={form.name || ''} onChange={e => update('name', e.target.value)} placeholder="e.g., Pro Plan" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/50" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-brand-text-secondary block mb-1">Status</label>
@@ -115,26 +149,151 @@ const PlanModal: React.FC<{ state: EditState; onClose: () => void; onSave: (plan
                     <option value="deprecated">Deprecated</option>
                   </select>
                 </div>
-                <label className="inline-flex items-center gap-2 text-xs font-medium text-brand-text-secondary select-none">
-                  <input type="checkbox" checked={!!form.highlight} onChange={e => update('highlight', e.target.checked)} className="rounded border-brand-border bg-brand-surface-2" /> Highlight Card
+                <div>
+                  <label className="text-xs font-medium text-brand-text-secondary block mb-1">Sort Order</label>
+                  <input type="number" value={form.sortOrder ?? 0} onChange={e => update('sortOrder', parseInt(e.target.value))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+            </div>
+
+            {/* Pricing & Duration */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-brand-text-primary border-b border-brand-border pb-2">Pricing & Duration</h4>
+              <div className="grid md:grid-cols-4 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-brand-text-secondary block mb-1">Monthly Price ($)</label>
+                  <input type="number" step="0.01" value={form.monthlyPrice ?? 0} onChange={e => update('monthlyPrice', parseFloat(e.target.value))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-brand-text-secondary block mb-1">Annual Discount (%)</label>
+                  <input type="number" value={form.annualDiscountPct ?? 0} onChange={e => update('annualDiscountPct', parseFloat(e.target.value))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-brand-text-secondary block mb-1">Trial Days</label>
+                  <input type="number" value={form.trialDays ?? 0} onChange={e => update('trialDays', parseInt(e.target.value))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div className="flex items-center gap-2 pt-6">
+                  <label className="inline-flex items-center gap-2 text-xs font-medium text-brand-text-secondary select-none">
+                    <input type="checkbox" checked={!!form.highlight} onChange={e => update('highlight', e.target.checked)} className="rounded border-brand-border bg-brand-surface-2" /> 
+                    Highlight Plan
+                  </label>
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-brand-text-secondary block mb-1">Max Subscription Duration</label>
+                  <input type="number" value={form.maxDuration ?? 30} onChange={e => update('maxDuration', parseInt(e.target.value))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-brand-text-secondary block mb-1">Duration Type</label>
+                  <select value={form.durationType} onChange={e => update('durationType', e.target.value as any)} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm">
+                    <option value="days">Days</option>
+                    <option value="months">Months</option>
+                    <option value="years">Years</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Feature Limits */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-brand-text-primary border-b border-brand-border pb-2">Feature Limits</h4>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-brand-text-secondary block mb-1">Max Categories</label>
+                  <input type="number" value={form.featureLimits?.maxCategories ?? 10} onChange={e => updateFeatureLimit('maxCategories', parseInt(e.target.value))} placeholder="-1 for unlimited" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                  <p className="text-xs text-brand-text-secondary mt-1">-1 for unlimited</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-brand-text-secondary block mb-1">Max Income Entries</label>
+                  <input type="number" value={form.featureLimits?.maxIncomes ?? 50} onChange={e => updateFeatureLimit('maxIncomes', parseInt(e.target.value))} placeholder="-1 for unlimited" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                  <p className="text-xs text-brand-text-secondary mt-1">Per month</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-brand-text-secondary block mb-1">Max Expense Entries</label>
+                  <input type="number" value={form.featureLimits?.maxExpenses ?? 50} onChange={e => updateFeatureLimit('maxExpenses', parseInt(e.target.value))} placeholder="-1 for unlimited" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                  <p className="text-xs text-brand-text-secondary mt-1">Per month</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-brand-text-secondary block mb-1">Max Accounts</label>
+                  <input type="number" value={form.featureLimits?.maxAccounts ?? 5} onChange={e => updateFeatureLimit('maxAccounts', parseInt(e.target.value))} placeholder="-1 for unlimited" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-brand-text-secondary block mb-1">Max Budgets</label>
+                  <input type="number" value={form.featureLimits?.maxBudgets ?? 10} onChange={e => updateFeatureLimit('maxBudgets', parseInt(e.target.value))} placeholder="-1 for unlimited" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+            </div>
+
+            {/* Feature Access */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-brand-text-primary border-b border-brand-border pb-2">Feature Access</h4>
+              <div className="grid md:grid-cols-3 gap-4">
+                <label className="inline-flex items-center gap-3 text-sm text-brand-text-secondary select-none p-3 bg-brand-surface-2 rounded-lg border border-brand-border hover:bg-brand-surface transition-colors">
+                  <input type="checkbox" checked={!!form.featureLimits?.analyticsAccess} onChange={e => updateFeatureLimit('analyticsAccess', e.target.checked)} className="rounded border-brand-border bg-brand-surface-2" />
+                  <div>
+                    <span className="font-medium">Advanced Analytics</span>
+                    <p className="text-xs text-brand-text-secondary">Charts, trends, insights</p>
+                  </div>
+                </label>
+                <label className="inline-flex items-center gap-3 text-sm text-brand-text-secondary select-none p-3 bg-brand-surface-2 rounded-lg border border-brand-border hover:bg-brand-surface transition-colors">
+                  <input type="checkbox" checked={!!form.featureLimits?.reportGeneration} onChange={e => updateFeatureLimit('reportGeneration', e.target.checked)} className="rounded border-brand-border bg-brand-surface-2" />
+                  <div>
+                    <span className="font-medium">Report Generation</span>
+                    <p className="text-xs text-brand-text-secondary">PDF reports, summaries</p>
+                  </div>
+                </label>
+                <label className="inline-flex items-center gap-3 text-sm text-brand-text-secondary select-none p-3 bg-brand-surface-2 rounded-lg border border-brand-border hover:bg-brand-surface transition-colors">
+                  <input type="checkbox" checked={!!form.featureLimits?.dataExport} onChange={e => updateFeatureLimit('dataExport', e.target.checked)} className="rounded border-brand-border bg-brand-surface-2" />
+                  <div>
+                    <span className="font-medium">Data Export</span>
+                    <p className="text-xs text-brand-text-secondary">CSV, JSON export</p>
+                  </div>
+                </label>
+                <label className="inline-flex items-center gap-3 text-sm text-brand-text-secondary select-none p-3 bg-brand-surface-2 rounded-lg border border-brand-border hover:bg-brand-surface transition-colors">
+                  <input type="checkbox" checked={!!form.featureLimits?.apiAccess} onChange={e => updateFeatureLimit('apiAccess', e.target.checked)} className="rounded border-brand-border bg-brand-surface-2" />
+                  <div>
+                    <span className="font-medium">API Access</span>
+                    <p className="text-xs text-brand-text-secondary">REST API integration</p>
+                  </div>
+                </label>
+                <label className="inline-flex items-center gap-3 text-sm text-brand-text-secondary select-none p-3 bg-brand-surface-2 rounded-lg border border-brand-border hover:bg-brand-surface transition-colors">
+                  <input type="checkbox" checked={!!form.featureLimits?.prioritySupport} onChange={e => updateFeatureLimit('prioritySupport', e.target.checked)} className="rounded border-brand-border bg-brand-surface-2" />
+                  <div>
+                    <span className="font-medium">Priority Support</span>
+                    <p className="text-xs text-brand-text-secondary">24h response time</p>
+                  </div>
+                </label>
+                <label className="inline-flex items-center gap-3 text-sm text-brand-text-secondary select-none p-3 bg-brand-surface-2 rounded-lg border border-brand-border hover:bg-brand-surface transition-colors">
+                  <input type="checkbox" checked={!!form.featureLimits?.customIntegrations} onChange={e => updateFeatureLimit('customIntegrations', e.target.checked)} className="rounded border-brand-border bg-brand-surface-2" />
+                  <div>
+                    <span className="font-medium">Custom Integrations</span>
+                    <p className="text-xs text-brand-text-secondary">Webhooks, custom apps</p>
+                  </div>
                 </label>
               </div>
+            </div>
+
+            {/* Features List */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-brand-text-primary border-b border-brand-border pb-2">Marketing Features</h4>
               <div className="space-y-3">
-                <label className="text-xs font-medium text-brand-text-secondary block">Features</label>
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scroll">
+                <label className="text-xs font-medium text-brand-text-secondary block">Feature List (for marketing display)</label>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
                   {(form.features || []).map((ft, i) => (
                     <div key={i} className="flex items-center gap-2">
-                      <input value={ft} onChange={e => updateFeature(i, e.target.value)} placeholder={`Feature ${i+1}`} className="flex-1 bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-1.5 text-sm" />
-                      <button onClick={() => removeFeature(i)} className="text-brand-text-secondary hover:text-red-400 text-xs px-2">✕</button>
+                      <input value={ft} onChange={e => updateFeature(i, e.target.value)} placeholder={`Feature ${i+1}`} className="flex-1 bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                      <button onClick={() => removeFeature(i)} className="text-brand-text-secondary hover:text-red-400 text-sm px-2 py-2">✕</button>
                     </div>
                   ))}
                 </div>
-                <button onClick={addFeature} className="text-xs bg-brand-surface-2 hover:bg-brand-surface border border-brand-border rounded-lg px-3 py-1.5 transition-colors">+ Add Feature</button>
+                <button onClick={addFeature} className="text-sm bg-brand-surface-2 hover:bg-brand-surface border border-brand-border rounded-lg px-4 py-2 transition-colors">+ Add Feature</button>
               </div>
             </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg bg-brand-surface-2 border border-brand-border hover:bg-brand-surface transition-colors">Cancel</button>
-              <button onClick={save} className="text-sm px-4 py-2 rounded-lg bg-brand-blue text-white hover:brightness-110 transition-colors">{editing ? 'Save Changes' : 'Create Plan'}</button>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-brand-border">
+              <button onClick={onClose} className="text-sm px-6 py-2 rounded-lg bg-brand-surface-2 border border-brand-border hover:bg-brand-surface transition-colors">Cancel</button>
+              <button onClick={save} className="text-sm px-6 py-2 rounded-lg bg-brand-blue text-white hover:brightness-110 transition-colors">{editing ? 'Save Changes' : 'Create Plan'}</button>
             </div>
           </motion.div>
         </motion.div>
@@ -163,9 +322,85 @@ const SubscriptionPage: React.FC = () => {
   const [editState, setEditState] = useState<EditState>({ open: false, plan: null });
 
   const [plans, setPlans] = useState<Plan[]>([
-    { id: 'basic', name: 'Basic', monthlyPrice: 9.99, annualDiscountPct: 20, features: ['Up to 5 accounts', 'Core tracking', 'Monthly reports', 'Email support'], status: 'active', subscribers: 1245, trialDays: 7, sortOrder: 1 },
-    { id: 'pro', name: 'Pro', monthlyPrice: 19.99, annualDiscountPct: 25, features: ['Unlimited accounts', 'Advanced analytics', 'Weekly reports', 'Priority support', 'Budget goals'], status: 'active', subscribers: 856, trialDays: 14, sortOrder: 2, highlight: true },
-    { id: 'enterprise', name: 'Enterprise', monthlyPrice: 59.0, annualDiscountPct: 30, features: ['All Pro features', 'Team workspaces', 'API access', 'Custom integrations', '24/7 phone support'], status: 'draft', subscribers: 34, trialDays: 21, sortOrder: 3 }
+    { 
+      id: 'basic', 
+      name: 'Basic', 
+      monthlyPrice: 9.99, 
+      annualDiscountPct: 20, 
+      features: ['Up to 5 categories', 'Up to 50 transactions/month', 'Basic reports', 'Email support'], 
+      featureLimits: {
+        maxCategories: 5,
+        maxIncomes: 25,
+        maxExpenses: 25,
+        maxAccounts: 3,
+        maxBudgets: 5,
+        analyticsAccess: false,
+        reportGeneration: true,
+        dataExport: false,
+        apiAccess: false,
+        prioritySupport: false,
+        customIntegrations: false,
+      },
+      status: 'active', 
+      subscribers: 1245, 
+      trialDays: 7,
+      maxDuration: 30,
+      durationType: 'days',
+      sortOrder: 1 
+    },
+    { 
+      id: 'pro', 
+      name: 'Pro', 
+      monthlyPrice: 19.99, 
+      annualDiscountPct: 25, 
+      features: ['Unlimited categories', 'Unlimited transactions', 'Advanced analytics', 'Priority support', 'Data export'], 
+      featureLimits: {
+        maxCategories: -1, // -1 means unlimited
+        maxIncomes: -1,
+        maxExpenses: -1,
+        maxAccounts: 10,
+        maxBudgets: -1,
+        analyticsAccess: true,
+        reportGeneration: true,
+        dataExport: true,
+        apiAccess: false,
+        prioritySupport: true,
+        customIntegrations: false,
+      },
+      status: 'active', 
+      subscribers: 856, 
+      trialDays: 14,
+      maxDuration: 12,
+      durationType: 'months',
+      sortOrder: 2, 
+      highlight: true 
+    },
+    { 
+      id: 'enterprise', 
+      name: 'Enterprise', 
+      monthlyPrice: 59.0, 
+      annualDiscountPct: 30, 
+      features: ['All Pro features', 'API access', 'Custom integrations', '24/7 phone support', 'Dedicated account manager'], 
+      featureLimits: {
+        maxCategories: -1,
+        maxIncomes: -1,
+        maxExpenses: -1,
+        maxAccounts: -1,
+        maxBudgets: -1,
+        analyticsAccess: true,
+        reportGeneration: true,
+        dataExport: true,
+        apiAccess: true,
+        prioritySupport: true,
+        customIntegrations: true,
+      },
+      status: 'draft', 
+      subscribers: 34, 
+      trialDays: 21,
+      maxDuration: 1,
+      durationType: 'years',
+      sortOrder: 3 
+    }
   ]);
 
   // Derived KPI metrics
@@ -188,7 +423,37 @@ const SubscriptionPage: React.FC = () => {
       setPlans(prev => prev.map(p => p.id === partial.id ? { ...p, ...partial } as Plan : p));
     } else {
       const id = partial.name?.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
-      setPlans(prev => [...prev, { id, name: partial.name || 'New Plan', monthlyPrice: partial.monthlyPrice || 0, annualDiscountPct: partial.annualDiscountPct || 0, features: partial.features || [], status: (partial.status as any) || 'draft', subscribers: partial.subscribers || 0, trialDays: partial.trialDays || 0, highlight: partial.highlight, sortOrder: partial.sortOrder || prev.length + 1 }]);
+      const defaultFeatureLimits: FeatureLimits = {
+        maxCategories: 10,
+        maxIncomes: 50,
+        maxExpenses: 50,
+        maxAccounts: 5,
+        maxBudgets: 10,
+        analyticsAccess: false,
+        reportGeneration: true,
+        dataExport: false,
+        apiAccess: false,
+        prioritySupport: false,
+        customIntegrations: false,
+      };
+      
+      const newPlan: Plan = {
+        id,
+        name: partial.name || 'New Plan',
+        monthlyPrice: partial.monthlyPrice || 0,
+        annualDiscountPct: partial.annualDiscountPct || 0,
+        features: partial.features || [],
+        featureLimits: partial.featureLimits || defaultFeatureLimits,
+        status: (partial.status as any) || 'draft',
+        subscribers: partial.subscribers || 0,
+        trialDays: partial.trialDays || 0,
+        maxDuration: partial.maxDuration || 30,
+        durationType: partial.durationType || 'days',
+        highlight: partial.highlight,
+        sortOrder: partial.sortOrder || prev.length + 1
+      };
+      
+      setPlans(prev => [...prev, newPlan]);
     }
   };
 
@@ -270,7 +535,12 @@ const SubscriptionPage: React.FC = () => {
                         <h3 className="text-lg font-semibold flex items-center gap-2">{plan.name}{plan.status !== 'active' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/30 capitalize">{plan.status}</span>}</h3>
                         <div className="mt-1 flex items-end gap-1">
                           <span className="text-3xl font-bold tracking-tight">{price}</span>
-                          <span className="text-xs text-brand-text-secondary mb-1">/{isAnnual ? 'year' : 'mo'}</span>
+                          <span className="text-xs text-brand-text-secondary mb-1">
+                            /{isAnnual ? 'year' : 'mo'}
+                            {plan.durationInDays && plan.durationInDays !== 30 && plan.durationInDays !== 365 && (
+                              <span className="ml-1 text-[10px] text-brand-text-tertiary">({plan.durationInDays} days)</span>
+                            )}
+                          </span>
                         </div>
                         {isAnnual && plan.annualDiscountPct && <p className="text-[10px] uppercase tracking-wide text-green-400 font-medium mt-1">Save {plan.annualDiscountPct}% • {format(monthlyEquivalent)}/mo equiv</p>}
                       </div>
@@ -279,8 +549,33 @@ const SubscriptionPage: React.FC = () => {
                         <p className="text-sm font-medium">{plan.subscribers.toLocaleString()}</p>
                       </div>
                     </div>
+                    {/* Feature Limits */}
+                    {plan.featureLimits && (
+                      <div className="mb-4 space-y-2">
+                        <h4 className="text-xs font-medium text-brand-text-secondary uppercase tracking-wide">Limits</h4>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-brand-text-tertiary">Categories:</span>
+                            <span className="font-medium">{plan.featureLimits.maxCategories === -1 ? 'Unlimited' : plan.featureLimits.maxCategories}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-brand-text-tertiary">Incomes:</span>
+                            <span className="font-medium">{plan.featureLimits.maxIncomes === -1 ? 'Unlimited' : plan.featureLimits.maxIncomes}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-brand-text-tertiary">Expenses:</span>
+                            <span className="font-medium">{plan.featureLimits.maxExpenses === -1 ? 'Unlimited' : plan.featureLimits.maxExpenses}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-brand-text-tertiary">Accounts:</span>
+                            <span className="font-medium">{plan.featureLimits.maxAccounts === -1 ? 'Unlimited' : plan.featureLimits.maxAccounts}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <ul className="space-y-2 mb-5 flex-1">
-                      {plan.features.slice(0,8).map((ft,i) => (
+                      {plan.features.slice(0,6).map((ft,i) => (
                         <li key={i} className="flex items-start gap-2 text-sm text-brand-text-secondary">
                           <span className="w-4 h-4 mt-0.5 flex items-center justify-center rounded-md bg-brand-surface-2 text-[10px] text-green-400">✓</span>
                           <span>{ft}</span>

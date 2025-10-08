@@ -68,10 +68,10 @@ export default function LoginPage() {
       
       // Special handling for access denied cases - redirect to superadmin login
       if (error.message && error.message.includes('Access denied')) {
+        addToast('Redirecting to admin portal...', 'info');
         setTimeout(() => {
-          addToast('Redirecting to superadmin login...', 'info');
           router.push('/superadmin/login');
-        }, 2000);
+        }, 1500); // Reduced delay for faster redirect
       }
     } finally {
       setLoading(false);
@@ -104,10 +104,10 @@ export default function LoginPage() {
       
       // Special handling for access denied cases - redirect to superadmin login
       if (error.message && error.message.includes('Access denied')) {
+        addToast('Redirecting to admin portal...', 'info');
         setTimeout(() => {
-          addToast('Redirecting to superadmin login...', 'info');
           router.push('/superadmin/login');
-        }, 2000);
+        }, 1500); // Reduced delay for faster redirect
       }
     } finally {
       setLoading(false);

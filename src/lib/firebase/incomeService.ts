@@ -145,6 +145,11 @@ export class IncomeService {
       });
       incomes.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       callback(incomes);
+    }, (error) => {
+      // Handle permission-denied and other listener errors silently
+      console.log('Income real-time listener error:', error?.message);
+      // Return empty array on listener error to prevent app crashes
+      callback([]);
     });
   }
 

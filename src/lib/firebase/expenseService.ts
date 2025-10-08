@@ -148,15 +148,15 @@ export class ExpenseService {
           expenses.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
           callback(expenses);
         } catch (snapshotError) {
-          console.error('Error processing expense snapshot:', snapshotError);
+          console.log('Error processing expense snapshot:', snapshotError?.message);
           callback([]); // Return empty array on error
         }
       }, (error) => {
-        console.error('Error listening to expense changes:', error);
+        console.log('Expense real-time listener error:', error?.message);
         callback([]); // Return empty array on error
       });
     } catch (e) {
-      console.error('Error setting up expense listener:', e);
+      console.log('Error setting up expense listener:', e?.message);
       // Return a no-op unsubscribe function
       return () => {};
     }

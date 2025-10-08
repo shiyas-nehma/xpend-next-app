@@ -130,27 +130,37 @@ export const useExpenses = (categories: Category[]) => {
         console.log('Admin check failed, continuing with regular user flow');
       }
 
-      const unsubscribe = ExpenseService.onExpensesChange(userId, categories, (updated) => {
-        // Ensure updated is always an array
-        const safeUpdated = Array.isArray(updated) ? updated : [];
-        // Same de-duplication on snapshot
-        const seen = new Set<string>();
-        const unique = safeUpdated.filter(e => {
-          if (!e || !e.docId) return true;
-          if (seen.has(e.docId)) return false;
-          seen.add(e.docId);
-          return true;
+      try {
+        const unsubscribe = ExpenseService.onExpensesChange(userId, categories, (updated) => {
+          // Ensure updated is always an array
+          const safeUpdated = Array.isArray(updated) ? updated : [];
+          // Same de-duplication on snapshot
+          const seen = new Set<string>();
+          const unique = safeUpdated.filter(e => {
+            if (!e || !e.docId) return true;
+            if (seen.has(e.docId)) return false;
+            seen.add(e.docId);
+            return true;
+          });
+          setExpenses(unique);
+          setLoading(false);
+          setError(null);
         });
-        setExpenses(unique);
-        setLoading(false);
-        setError(null);
-      });
-      return unsubscribe;
+        return unsubscribe;
+      } catch (listenerError: any) {
+        // Handle permission-denied and other listener setup errors silently
+        console.log('Failed to set up real-time listener, falling back to one-time load:', listenerError?.message);
+        // Fall back to one-time load if real-time listener fails
+        loadExpenses();
+        return undefined;
+      }
     };
 
     let unsubscribeRef: (() => void) | undefined;
     checkAdminAndSetupListener().then(unsubscribe => {
       unsubscribeRef = unsubscribe;
+    }).catch(error => {
+      console.log('Real-time listener setup failed:', error?.message);
     });
 
     return () => {
@@ -158,7 +168,7 @@ export const useExpenses = (categories: Category[]) => {
         unsubscribeRef();
       }
     };
-  }, [categories, userId, user, authLoading]);
+  }, [categories, userId, user, authLoading, loadExpenses]);
 
   return {
     expenses,

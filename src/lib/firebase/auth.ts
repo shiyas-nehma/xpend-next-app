@@ -117,7 +117,7 @@ export const signIn = async ({ email, password }: LoginData): Promise<{ user: Us
     if (userData.userType !== 2) {
       // Sign out the user since they shouldn't be logging in here
       await signOut(auth);
-      throw new Error('Access denied: Please use the appropriate login portal');
+      throw new Error('Access denied: This account requires superadmin login. You will be redirected to the admin portal.');
     }
     
     // Update last sign in

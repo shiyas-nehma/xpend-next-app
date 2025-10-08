@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useState, useCallback, useRef, ReactNode } from 'react';
 import type { Toast, ToastType } from '@/types';
 
 interface ToastContextType {
@@ -13,13 +13,18 @@ export const ToastContext = createContext<ToastContextType | undefined>(undefine
 
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  
+  // Use a ref to track ID counter without causing re-renders
+  const idCounterRef = useRef(0);
 
   const removeToast = useCallback((id: number) => {
     setToasts(prevToasts => prevToasts.filter(toast => toast.id !== id));
   }, []);
 
   const addToast = useCallback((message: string, type: ToastType) => {
-    const id = Date.now();
+    // Generate unique ID using timestamp + incremental counter
+    const id = Date.now() * 1000 + (++idCounterRef.current);
+    
     setToasts(prevToasts => [...prevToasts, { id, message, type }]);
     setTimeout(() => {
       removeToast(id);

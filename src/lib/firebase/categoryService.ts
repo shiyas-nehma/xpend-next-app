@@ -146,6 +146,11 @@ export class CategoryService {
       categories.sort((a, b) => b.id - a.id);
       
       callback(categories);
+    }, (error) => {
+      // Handle permission-denied and other listener errors silently
+      console.log('Categories real-time listener error:', error?.message);
+      // Return empty array on listener error to prevent app crashes
+      callback([]);
     });
   }
 
