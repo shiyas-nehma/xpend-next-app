@@ -3,8 +3,9 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useScrollLock } from '@/hooks/useScrollLock';
 import { useCurrency } from '@/context/CurrencyContext';
-import { PlusIcon, PencilIcon, TrashIcon, XIcon, CreditCardIcon, CashIcon, BankIcon, ChevronDownIcon, MagnifyingGlassIcon, GridIcon, ListIcon, RefreshIcon } from '@/components/icons/NavIcons';
+import { PlusIcon, PencilIcon, TrashIcon, XIcon, CreditCardIcon, CashIcon, BankIcon, ChevronDownIcon, MagnifyingGlassIcon, GridIcon, ListIcon } from '@/components/icons/NavIcons';
 import type { Income, Category, Recurrence } from '@/types';
 import CategoryModal from '@/components/category/CategoryModal';
 import ConfirmationModal from '@/components/common/ConfirmationModal';
@@ -120,6 +121,7 @@ const IncomeModal: React.FC<{
     const [endDate, setEndDate] = useState('');
 
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+    useScrollLock(isOpen, ['#app-scroll']);
 
     useEffect(() => {
         if (incomeToEdit) {
@@ -226,7 +228,7 @@ const IncomeModal: React.FC<{
                 <div className="w-full max-w-2xl bg-brand-surface rounded-2xl shadow-2xl p-8 z-10 
                            border border-transparent 
                            [background:linear-gradient(theme(colors.brand.surface),theme(colors.brand.surface))_padding-box,linear-gradient(120deg,theme(colors.brand.border),theme(colors.brand.border)_50%,rgba(93,120,255,0.5))_border-box]
-                           relative max-h-[90vh] flex flex-col">
+                           relative h-[90vh] max-h-[90vh] flex flex-col overflow-y-auto min-h-0">
                     
                     <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.05),_transparent_40%)] -z-10"></div>
                     
@@ -237,9 +239,9 @@ const IncomeModal: React.FC<{
                         </button>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="flex-grow overflow-hidden flex flex-col">
+                    <form onSubmit={handleSubmit} className="flex flex-col gap-0">
                         
-                        <div className="flex-shrink-0">
+                        <div className="shrink-0">
                             <div className="text-center pt-2 pb-6 border-b border-brand-border">
                                 <label className="text-sm font-medium text-brand-text-secondary" htmlFor="incomeAmount">Amount</label>
                                 <div className="relative mt-1 flex justify-center items-center">
@@ -338,7 +340,7 @@ const IncomeModal: React.FC<{
                             </div>
                         </div>
                         
-                        <div className="flex-grow flex flex-col min-h-0 pt-6 border-t border-brand-border">
+                        <div className="flex flex-col pt-6 border-t border-brand-border">
                             <label className="block text-brand-text-secondary text-sm font-medium mb-3 flex-shrink-0">Category</label>
                             <div className="flex-grow overflow-y-auto -mr-4 pr-4">
                                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 p-1">
@@ -465,7 +467,11 @@ const IncomeCard: React.FC<{
                  <div className="flex items-center space-x-1.5">
                     {paymentMethodIcons[income.paymentMethod]}
                     <span>{income.paymentMethod}</span>
-                    {income.recurrence && <RefreshIcon className="w-4 h-4 text-blue-400" title="Recurring" />}
+                                        {(income.recurrence || income.generated) && (
+                                            <span className="ml-1 px-1.5 py-0.5 rounded-md bg-blue-500/15 text-blue-400 text-[10px] font-semibold uppercase tracking-wide border border-blue-500/30">
+                                                Recurring
+                                            </span>
+                                        )}
                 </div>
                  <p className="font-medium">{formatDate(income.date)}</p>
             </div>
@@ -569,7 +575,11 @@ const IncomeListItem: React.FC<{
                  <div className="hidden md:flex items-center gap-2 text-sm text-brand-text-secondary">
                     {paymentMethodIcons[income.paymentMethod]}
                     <span>{income.paymentMethod}</span>
-                    {income.recurrence && <RefreshIcon className="w-4 h-4 text-blue-400" title="Recurring" />}
+                                        {(income.recurrence || income.generated) && (
+                                            <span className="ml-1 px-1.5 py-0.5 rounded-md bg-blue-500/15 text-blue-400 text-[10px] font-semibold uppercase tracking-wide border border-blue-500/30">
+                                                Recurring
+                                            </span>
+                                        )}
                 </div>
             </div>
             

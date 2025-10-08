@@ -45,6 +45,7 @@ export default function RootLayout({
           'Accounts': '/accounts',
           'Income': '/income',
           'Expense': '/expense',
+          'Recurring': '/recurring',
           'Category': '/category',
           'Budget': '/budget',
           'Goals': '/goals',
@@ -63,7 +64,7 @@ export default function RootLayout({
         <main>
           <div className="flex h-screen bg-brand-background">
             <Sidebar activePage={activePage} onNavigate={handleNavigation} isLoggingOut={isLoggingOut} />
-            <div className="flex-1 md:ml-20 overflow-y-auto pb-16 md:pb-0">
+            <div id="app-scroll" className="flex-1 md:ml-20 overflow-y-auto pb-16 md:pb-0">
               {children}
             </div>
             <MobileNavigation activePage={activePage} onNavigate={handleNavigation} />

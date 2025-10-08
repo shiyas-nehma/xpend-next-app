@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { DashboardIcon, IncomeIcon, ExpenseIcon, CategoryIcon, BudgetIcon, GoalIcon, ReportIcon, SettingsIcon, LogoutIcon, AIIcon, AccountsIcon } from '@/components/icons/NavIcons';
+import { DashboardIcon, IncomeIcon, ExpenseIcon, CategoryIcon, BudgetIcon, GoalIcon, ReportIcon, SettingsIcon, LogoutIcon, AIIcon, AccountsIcon, RepeatIcon } from '@/components/icons/NavIcons';
 
 const MobileNavItem: React.FC<{ 
   icon: React.ReactNode; 
@@ -32,6 +32,7 @@ const MobileNavigation: React.FC<{
     { label: 'AI', icon: <AIIcon /> },
     { label: 'Accounts', icon: <AccountsIcon /> },
     { label: 'Expense', icon: <ExpenseIcon /> },
+    { label: 'Recurring', icon: <RepeatIcon /> },
     { label: 'Report', icon: <ReportIcon /> },
   ];
 

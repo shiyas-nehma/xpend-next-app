@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useScrollLock } from '@/hooks/useScrollLock';
 import { useCurrency } from '@/context/CurrencyContext';
 import type { Category } from '@/types';
 import { XIcon, SparklesIcon } from '@/components/icons/NavIcons';
@@ -55,6 +56,8 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, onSave, 
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const { symbol } = useCurrency();
+  // Prevent background scroll when modal open
+  useScrollLock(isOpen);
 
   useEffect(() => {
     if (category) {

@@ -29,6 +29,8 @@ export interface FirebaseIncome {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   recurrence?: Recurrence; // Stored as plain object
+  recurrenceParentId?: string; // Parent recurring income doc ID
+  generated?: boolean; // Flag for generated instance
 }
 
 const COLLECTION_NAME = 'incomes';
@@ -91,6 +93,8 @@ export class IncomeService {
       paymentMethod: data.paymentMethod,
       category: categoryObj,
       recurrence: data.recurrence,
+      recurrenceParentId: data.recurrenceParentId,
+      generated: data.generated,
     };
   }
 
@@ -221,17 +225,25 @@ export class IncomeService {
         updateData.categoryName = updated.category.name;
         updateData.categoryIcon = updated.category.icon;
       }
+      // Allow explicit clearing / detaching
+      if ((updated as any).recurrenceParentId === null) {
+        updateData.recurrenceParentId = null;
+      }
+      if ((updated as any).generated === false) {
+        updateData.generated = false;
+      }
       if (updated.recurrence !== undefined) {
         if (updated.recurrence === null) {
           updateData.recurrence = null; // Explicitly remove recurrence
         } else {
           const { frequency, end } = updated.recurrence;
+          const status = updated.recurrence.status || 'Active';
           if (end.type === 'Never') {
-            updateData.recurrence = { frequency, end: { type: 'Never' } };
+            updateData.recurrence = { frequency, end: { type: 'Never' }, status };
           } else if (end.type === 'After' && typeof end.value === 'number') {
-            updateData.recurrence = { frequency, end: { type: 'After', value: end.value } };
+            updateData.recurrence = { frequency, end: { type: 'After', value: end.value }, status };
           } else if (end.type === 'OnDate' && typeof end.value === 'string' && end.value) {
-            updateData.recurrence = { frequency, end: { type: 'OnDate', value: end.value } };
+            updateData.recurrence = { frequency, end: { type: 'OnDate', value: end.value }, status };
           } else {
             updateData.recurrence = null; // Invalid recurrence, remove it
           }
@@ -245,6 +257,26 @@ export class IncomeService {
     }
   }
 
+  static async stopRecurrence(incomeId: string): Promise<void> {
+    try {
+      const incomeRef = doc(db, COLLECTION_NAME, incomeId);
+      await updateDoc(incomeRef, { recurrence: null, updatedAt: Timestamp.now() });
+    } catch (e) {
+      console.error('Error stopping recurrence (income)', e);
+      throw new Error('Failed to stop recurrence');
+    }
+  }
+
+  static async detachInstance(incomeId: string): Promise<void> {
+    try {
+      const incomeRef = doc(db, COLLECTION_NAME, incomeId);
+      await updateDoc(incomeRef, { recurrenceParentId: null, generated: false, updatedAt: Timestamp.now() });
+    } catch (e) {
+      console.error('Error detaching income instance', e);
+      throw new Error('Failed to detach instance');
+    }
+  }
+
   static async deleteIncome(incomeId: string): Promise<void> {
     try {
       const incomeRef = doc(db, COLLECTION_NAME, incomeId);
@@ -252,6 +284,83 @@ export class IncomeService {
     } catch (e) {
       console.error('Error deleting income', e);
       throw new Error('Failed to delete income');
+    }
+  }
+
+  /** Generate missing recurring income instances up to today (client-side catch-up). */
+  static async generateMissingRecurringIncomes(userId: string): Promise<void> {
+    try {
+      const qAll = query(collection(db, COLLECTION_NAME), where('userId', '==', userId));
+      const snapshot = await getDocs(qAll);
+      const parentIncomes: { docId: string; data: FirebaseIncome }[] = [];
+      const all: { docId: string; data: FirebaseIncome }[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data() as FirebaseIncome;
+        all.push({ docId: docSnap.id, data });
+  if (data.recurrence && data.recurrence.status !== 'Paused' && !data.generated) parentIncomes.push({ docId: docSnap.id, data });
+      });
+      if (!parentIncomes.length) return;
+
+      const existingByParentAndDate = new Map<string, Set<string>>();
+      all.forEach(({ docId, data }) => {
+        const parentId = data.recurrenceParentId || docId;
+        const dateStr = data.date.toDate().toISOString().split('T')[0];
+        if (!existingByParentAndDate.has(parentId)) existingByParentAndDate.set(parentId, new Set());
+        existingByParentAndDate.get(parentId)!.add(dateStr);
+      });
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      const today = new Date(todayStr + 'T00:00:00');
+      const adds: Omit<FirebaseIncome, 'id'>[] = [];
+
+      const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+      const addMonths = (d: Date, n: number) => { const x = new Date(d); x.setMonth(x.getMonth() + n); return x; };
+      const addYears = (d: Date, n: number) => { const x = new Date(d); x.setFullYear(x.getFullYear() + n); return x; };
+
+      for (const { docId, data } of parentIncomes) {
+        const rec = data.recurrence; if (!rec) continue;
+        let cursor = new Date(data.date.toDate());
+        const parentDates = existingByParentAndDate.get(docId) || new Set();
+        let occurrenceLimit: number | undefined;
+        let endDateLimit: Date | undefined;
+        if (rec.end.type === 'After' && typeof rec.end.value === 'number') occurrenceLimit = rec.end.value;
+        else if (rec.end.type === 'OnDate' && typeof rec.end.value === 'string') endDateLimit = new Date(rec.end.value + 'T00:00:00');
+        const existingCount = Array.from(parentDates).length;
+        if (occurrenceLimit && existingCount >= occurrenceLimit) continue;
+        let safety = 0;
+        while (safety < 730) {
+          safety++;
+            switch (rec.frequency) {
+              case 'Daily': cursor = addDays(cursor, 1); break;
+              case 'Weekly': cursor = addDays(cursor, 7); break;
+              case 'Monthly': cursor = addMonths(cursor, 1); break;
+              case 'Yearly': cursor = addYears(cursor, 1); break;
+            }
+          const cursorStr = cursor.toISOString().split('T')[0];
+          if (cursor > today) break;
+          if (endDateLimit && cursor > endDateLimit) break;
+          const projectedCount = (existingCount + adds.filter(a => a.recurrenceParentId === docId).length) + 1;
+          if (occurrenceLimit && projectedCount > occurrenceLimit) break;
+          if (parentDates.has(cursorStr) || adds.some(a => a.recurrenceParentId === docId && a.date.toDate().toISOString().startsWith(cursorStr))) continue;
+          adds.push({
+            amount: data.amount,
+            description: data.description,
+            date: Timestamp.fromDate(new Date(cursorStr + 'T00:00:00')),
+            paymentMethod: data.paymentMethod,
+            categoryId: data.categoryId,
+            categoryName: data.categoryName,
+            categoryIcon: data.categoryIcon,
+            userId: data.userId,
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
+            recurrenceParentId: docId,
+            generated: true,
+          });
+        }
+      }
+      for (const inc of adds) await addDoc(collection(db, COLLECTION_NAME), inc);
+    } catch (e) {
+      console.error('generateMissingRecurringIncomes failed', e);
     }
   }
 }

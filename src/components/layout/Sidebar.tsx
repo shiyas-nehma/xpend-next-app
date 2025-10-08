@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { DashboardIcon, IncomeIcon, ExpenseIcon, CategoryIcon, BudgetIcon, GoalIcon, ReportIcon, SettingsIcon, LogoutIcon, Logo, AIIcon, AccountsIcon } from '@/components/icons/NavIcons';
+import { DashboardIcon, IncomeIcon, ExpenseIcon, CategoryIcon, BudgetIcon, GoalIcon, ReportIcon, SettingsIcon, LogoutIcon, Logo, AIIcon, AccountsIcon, RepeatIcon } from '@/components/icons/NavIcons';
 
 const NavItem: React.FC<{ 
   icon: React.ReactNode; 
@@ -47,6 +47,7 @@ const Sidebar: React.FC<{
     { label: 'Accounts', icon: <AccountsIcon /> },
     { label: 'Income', icon: <IncomeIcon /> },
     { label: 'Expense', icon: <ExpenseIcon /> },
+    { label: 'Recurring', icon: <RepeatIcon /> },
     { label: 'Category', icon: <CategoryIcon /> },
     { label: 'Budget', icon: <BudgetIcon /> },
     { label: 'Goals', icon: <GoalIcon /> },

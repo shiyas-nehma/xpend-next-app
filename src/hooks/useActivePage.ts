@@ -17,6 +17,7 @@ export const useActivePage = () => {
       'accounts': 'Accounts',
       'income': 'Income',
       'expense': 'Expense',
+      'recurring': 'Recurring',
       'category': 'Category',
       'budget': 'Budget',
       'goals': 'Goals',

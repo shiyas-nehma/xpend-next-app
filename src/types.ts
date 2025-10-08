@@ -29,6 +29,10 @@ export interface Expense {
   paymentMethod: 'Card' | 'Cash' | 'Bank';
   category: Category;       // Embedded category snapshot (denormalized for UI convenience)
   recurrence?: Recurrence;  // Optional recurrence definition
+  /** If this is a generated instance of a recurring expense, reference to the parent expense's Firestore doc ID */
+  recurrenceParentId?: string;
+  /** True if this instance was auto-generated from a recurrence rule */
+  generated?: boolean;
   /** Firestore document ID (string) for stable identification */
   docId?: string;
 }
@@ -41,6 +45,10 @@ export interface Income {
   paymentMethod: 'Card' | 'Cash' | 'Bank';
   category: Category;       // Embedded category snapshot (denormalized for UI convenience)
   recurrence?: Recurrence;  // Optional recurrence definition
+  /** If generated from a recurring rule, references the parent income's Firestore doc ID */
+  recurrenceParentId?: string;
+  /** True if auto-generated (not the parent rule holder) */
+  generated?: boolean;
   /** Firestore document ID (string) for stable identification */
   docId?: string;
 }
@@ -91,6 +99,7 @@ export interface Recurrence {
     type: 'Never' | 'After' | 'OnDate';
     value?: number | string; // Occurrences or date string
   };
+  status?: 'Active' | 'Paused';
 }
 
 

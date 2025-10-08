@@ -41,6 +41,8 @@ export const useExpenses = (categories: Category[]) => {
     try {
       setLoading(true);
       setError(null);
+      // First, generate any missing recurring instances (best-effort; non-blocking errors)
+      await ExpenseService.generateMissingRecurringExpenses(userId);
       const data = await ExpenseService.getExpenses(userId, categories);
       // Ensure data is always an array
       const safeData = Array.isArray(data) ? data : [];

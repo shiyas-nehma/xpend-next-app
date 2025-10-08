@@ -395,6 +395,19 @@ export const RefreshIcon: React.FC<{ className?: string, title?: string }> = ({ 
     </IconWrapper>
 );
 
+// Repeat / Recurring indicator (two arrows forming a loop)
+export const RepeatIcon: React.FC<{ className?: string; title?: string }> = ({ className, title }) => (
+  <IconWrapper className={className}>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+      {title && <title>{title}</title>}
+      <path d="M4 7c0-1.657 1.79-3 4-3h6.5a4.5 4.5 0 0 1 0 9H7" />
+      <path d="M20 17c0 1.657-1.79 3-4 3H9.5a4.5 4.5 0 0 1 0-9H17" />
+      <path d="M8 11 4 7l4-4" />
+      <path d="M16 13l4 4-4 4" />
+    </svg>
+  </IconWrapper>
+);
+
 export const DocumentTextIcon: React.FC<{ className?: string }> = ({ className }) => (
     <IconWrapper className={className}>
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">

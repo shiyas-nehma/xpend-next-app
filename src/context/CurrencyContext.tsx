@@ -91,17 +91,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   return (
     <CurrencyContext.Provider value={{ code, symbol, loading, setCurrency, format }}>
-      {/* Only show loading for authenticated users, not on public pages */}
-      {loading && user ? (
-        <div className="w-full h-full flex items-center justify-center py-20 text-sm text-brand-text-secondary">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-brand-border border-t-brand-blue rounded-full animate-spin" />
-            <span>Loading currency preferences…</span>
-          </div>
-        </div>
-      ) : (
-        children
-      )}
+      {children}
     </CurrencyContext.Provider>
   );
 };

@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useScrollLock } from '@/hooks/useScrollLock';
 import { XIcon } from '@/components/icons/NavIcons';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -16,6 +17,7 @@ interface ConfirmationModalProps {
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, onClose, onConfirm, title, message, confirmText }) => {
   const [confirmInput, setConfirmInput] = useState('');
+  useScrollLock(isOpen);
 
   useEffect(() => {
     if (!isOpen) {

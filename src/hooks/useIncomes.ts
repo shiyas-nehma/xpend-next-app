@@ -41,7 +41,8 @@ export const useIncomes = (categories: Category[]) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await IncomeService.getIncomes(userId, categories);
+  await IncomeService.generateMissingRecurringIncomes(userId);
+  const data = await IncomeService.getIncomes(userId, categories);
       // Ensure data is always an array
       const safeData = Array.isArray(data) ? data : [];
       // De-duplicate by docId to avoid duplicate React keys in case of race conditions
