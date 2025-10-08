@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/useToast';
-import { logout, isSuperAdmin } from '@/lib/firebase/auth';
+import { isSuperAdmin } from '@/lib/firebase/auth';
 
 // Admin Dashboard Components
 const DashboardStats: React.FC = () => {
@@ -17,11 +16,11 @@ const DashboardStats: React.FC = () => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       {stats.map((stat, index) => (
-        <div key={index} className="bg-brand-surface border border-brand-border rounded-xl p-6">
+        <div key={index} className="bg-white border border-gray-200 rounded-xl p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-brand-text-secondary text-sm font-medium">{stat.label}</p>
-              <p className="text-brand-text-primary text-2xl font-bold mt-1">{stat.value}</p>
+              <p className="text-gray-500 text-sm font-medium">{stat.label}</p>
+              <p className="text-gray-900 text-2xl font-bold mt-1">{stat.value}</p>
             </div>
             <div className={`text-sm font-semibold ${stat.color}`}>
               {stat.change}
@@ -42,37 +41,38 @@ const UserManagement: React.FC = () => {
   ];
 
   return (
-    <div className="bg-brand-surface border border-brand-border rounded-xl p-6">
-      <h3 className="text-xl font-bold text-brand-text-primary mb-4">User Management</h3>
+    <div className="bg-white border border-gray-200 rounded-xl p-6">
+      <h3 className="text-xl font-bold text-gray-900 mb-4">User Management</h3>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-brand-border">
-              <th className="text-left py-3 px-4 text-brand-text-secondary font-medium">Name</th>
-              <th className="text-left py-3 px-4 text-brand-text-secondary font-medium">Email</th>
-              <th className="text-left py-3 px-4 text-brand-text-secondary font-medium">Status</th>
-              <th className="text-left py-3 px-4 text-brand-text-secondary font-medium">Joined</th>
-              <th className="text-left py-3 px-4 text-brand-text-secondary font-medium">Actions</th>
+            <tr className="border-b border-gray-200">
+              <th className="text-left py-2 px-4 font-medium text-gray-500">Name</th>
+              <th className="text-left py-2 px-4 font-medium text-gray-500">Email</th>
+              <th className="text-left py-2 px-4 font-medium text-gray-500">Status</th>
+              <th className="text-left py-2 px-4 font-medium text-gray-500">Joined</th>
+              <th className="text-left py-2 px-4 font-medium text-gray-500">Actions</th>
             </tr>
           </thead>
           <tbody>
             {users.map((user) => (
-              <tr key={user.id} className="border-b border-brand-border last:border-b-0">
-                <td className="py-3 px-4 text-brand-text-primary font-medium">{user.name}</td>
-                <td className="py-3 px-4 text-brand-text-secondary">{user.email}</td>
+              <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
+                <td className="py-3 px-4 text-gray-900">{user.name}</td>
+                <td className="py-3 px-4 text-gray-600">{user.email}</td>
                 <td className="py-3 px-4">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     user.status === 'Active' 
-                      ? 'bg-green-500/10 text-green-400' 
-                      : 'bg-red-500/10 text-red-400'
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
                   }`}>
                     {user.status}
                   </span>
                 </td>
-                <td className="py-3 px-4 text-brand-text-secondary">{user.joined}</td>
+                <td className="py-3 px-4 text-gray-600">{user.joined}</td>
                 <td className="py-3 px-4">
-                  <button className="text-brand-blue hover:underline text-sm mr-3">View</button>
-                  <button className="text-red-400 hover:underline text-sm">Suspend</button>
+                  <button className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+                    Edit
+                  </button>
                 </td>
               </tr>
             ))}
@@ -93,20 +93,20 @@ const SystemLogs: React.FC = () => {
   ];
 
   return (
-    <div className="bg-brand-surface border border-brand-border rounded-xl p-6">
-      <h3 className="text-xl font-bold text-brand-text-primary mb-4">System Logs</h3>
+    <div className="bg-white border border-gray-200 rounded-xl p-6">
+      <h3 className="text-xl font-bold text-gray-900 mb-4">System Logs</h3>
       <div className="space-y-3 max-h-96 overflow-y-auto">
         {logs.map((log, index) => (
           <div key={index} className="flex items-start space-x-3 text-sm">
-            <div className="text-brand-text-secondary font-mono">{log.time}</div>
-            <div className={`font-semibold ${
-              log.level === 'ERROR' ? 'text-red-400' : 
-              log.level === 'WARN' ? 'text-yellow-400' : 
-              'text-green-400'
+            <span className="text-gray-500 font-mono min-w-max">{log.time}</span>
+            <span className={`px-2 py-1 rounded text-xs font-medium min-w-max ${
+              log.level === 'ERROR' ? 'bg-red-100 text-red-800' :
+              log.level === 'WARN' ? 'bg-yellow-100 text-yellow-800' :
+              'bg-blue-100 text-blue-800'
             }`}>
               {log.level}
-            </div>
-            <div className="text-brand-text-primary flex-1">{log.message}</div>
+            </span>
+            <span className="text-gray-700">{log.message}</span>
           </div>
         ))}
       </div>
@@ -118,36 +118,43 @@ export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [adminData, setAdminData] = useState<any>(null);
   const router = useRouter();
-  const { addToast } = useToast();
 
   useEffect(() => {
     // Check admin authentication
     const checkAdminAuth = async () => {
       try {
-        const token = sessionStorage.getItem('superadmin_token');
-        const adminDataStr = sessionStorage.getItem('superadmin_data');
+        const token = localStorage.getItem('superadmin_token');
+        const adminDataStr = localStorage.getItem('superadmin_data');
         
-        if (!token) {
+        if (!token || !adminDataStr) {
+          console.log('No token or admin data found in local storage');
           router.push('/superadmin/login');
           return;
         }
         
-        // Verify with Firebase that user is still superadmin
-        const isAdmin = await isSuperAdmin();
-        if (!isAdmin) {
-          sessionStorage.removeItem('superadmin_token');
-          sessionStorage.removeItem('superadmin_data');
-          router.push('/superadmin/login');
-          return;
-        }
+        // Parse stored admin data
+        const storedAdminData = JSON.parse(adminDataStr);
+        setAdminData(storedAdminData);
         
-        if (adminDataStr) {
-          setAdminData(JSON.parse(adminDataStr));
-        }
+        // Verify with Firebase that user is still superadmin (non-blocking)
+        // This runs in background to ensure the token is still valid
+        isSuperAdmin().then(isAdmin => {
+          if (!isAdmin) {
+            console.log('User is no longer a superadmin');
+            localStorage.removeItem('superadmin_token');
+            localStorage.removeItem('superadmin_data');
+            router.push('/superadmin/login');
+          }
+        }).catch(error => {
+          console.error('Error verifying superadmin status:', error);
+          // Don't redirect immediately on error, Firebase might be initializing
+        });
         
         setLoading(false);
       } catch (error) {
         console.error('Auth check error:', error);
+        localStorage.removeItem('superadmin_token');
+        localStorage.removeItem('superadmin_data');
         router.push('/superadmin/login');
       }
     };
@@ -155,102 +162,58 @@ export default function SuperAdminDashboard() {
     checkAdminAuth();
   }, [router]);
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      sessionStorage.removeItem('superadmin_token');
-      sessionStorage.removeItem('superadmin_data');
-      addToast('Logged out successfully', 'success');
-      router.push('/superadmin/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-      addToast('Error during logout', 'error');
-    }
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-brand-bg flex items-center justify-center">
-        <div className="text-brand-text-primary">Loading admin dashboard...</div>
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-gray-500">Loading admin dashboard...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-brand-bg">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="bg-brand-surface border-b border-brand-border">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
-                <div className="w-1 h-4 bg-white rounded-full transform -skew-x-12" />
-                <div className="w-1 h-5 bg-white rounded-full transform -skew-x-12 ml-1" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-brand-text-primary">Super Admin Dashboard</h1>
-                <p className="text-sm text-brand-text-secondary">Administrative Control Panel</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-brand-text-primary">
-                  {adminData?.displayName || 'Super Administrator'}
-                </p>
-                <p className="text-xs text-brand-text-secondary">
-                  {adminData?.email || 'superadmin@superadmin.com'}
-                </p>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <p className="text-gray-600 mt-1">Welcome back, {adminData?.displayName || 'Super Administrator'}</p>
+      </div>
+
+      {/* Stats */}
+      <DashboardStats />
+
+      {/* Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* User Management */}
+        <div className="lg:col-span-2">
+          <UserManagement />
+        </div>
+        
+        {/* System Logs */}
+        <div className="lg:col-span-2">
+          <SystemLogs />
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Stats */}
-        <DashboardStats />
-
-        {/* Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* User Management */}
-          <div className="lg:col-span-2">
-            <UserManagement />
-          </div>
-          
-          {/* System Logs */}
-          <div className="lg:col-span-2">
-            <SystemLogs />
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="mt-8">
-          <h3 className="text-xl font-bold text-brand-text-primary mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {[
-              'Export Users',
-              'System Backup',
-              'Clear Cache',
-              'Send Notifications',
-              'Generate Reports',
-              'Maintenance Mode'
-            ].map((action, index) => (
-              <button
-                key={index}
-                className="bg-brand-surface border border-brand-border hover:bg-brand-border text-brand-text-primary p-4 rounded-lg text-sm font-medium transition-colors"
-              >
-                {action}
-              </button>
-            ))}
-          </div>
+      {/* Quick Actions */}
+            {/* Quick Actions */}
+      <div>
+        <h3 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {[
+            'Export Users',
+            'System Backup',
+            'Clear Cache',
+            'Send Notifications',
+            'Generate Reports',
+            'Maintenance Mode'
+          ].map((action, index) => (
+            <button
+              key={index}
+              className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 p-4 rounded-lg text-sm font-medium transition-colors"
+            >
+              {action}
+            </button>
+          ))}
         </div>
       </div>
     </div>

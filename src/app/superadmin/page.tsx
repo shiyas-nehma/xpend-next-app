@@ -10,14 +10,14 @@ export default function SuperAdminPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const token = sessionStorage.getItem('superadmin_token');
+        const token = localStorage.getItem('superadmin_token');
         if (token) {
           const isAdmin = await isSuperAdmin();
           if (isAdmin) {
             router.push('/superadmin/dashboard');
           } else {
-            sessionStorage.removeItem('superadmin_token');
-            sessionStorage.removeItem('superadmin_data');
+            localStorage.removeItem('superadmin_token');
+            localStorage.removeItem('superadmin_data');
             router.push('/superadmin/login');
           }
         } else {

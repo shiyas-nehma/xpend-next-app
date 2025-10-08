@@ -46,8 +46,8 @@ export default function SuperAdminLoginPage() {
       });
       
       // Store admin session with Firebase UID
-      sessionStorage.setItem('superadmin_token', user.uid);
-      sessionStorage.setItem('superadmin_data', JSON.stringify(userData));
+      localStorage.setItem('superadmin_token', user.uid);
+      localStorage.setItem('superadmin_data', JSON.stringify(userData));
       
       addToast('Successfully logged in as Super Admin', 'success');
       router.push('/superadmin/dashboard');
@@ -69,8 +69,8 @@ export default function SuperAdminLoginPage() {
             password: formData.password
           });
           
-          sessionStorage.setItem('superadmin_token', user.uid);
-          sessionStorage.setItem('superadmin_data', JSON.stringify(userData));
+          localStorage.setItem('superadmin_token', user.uid);
+          localStorage.setItem('superadmin_data', JSON.stringify(userData));
           
           addToast('Superadmin account created and logged in successfully!', 'success');
           router.push('/superadmin/dashboard');

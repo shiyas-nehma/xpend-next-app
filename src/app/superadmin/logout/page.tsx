@@ -10,7 +10,8 @@ export default function SuperAdminLogout() {
 
   useEffect(() => {
     // Clear admin session
-    sessionStorage.removeItem('superadmin_token');
+    localStorage.removeItem('superadmin_token');
+    localStorage.removeItem('superadmin_data');
     
     // Show success message
     addToast('Successfully logged out from Super Admin', 'success');

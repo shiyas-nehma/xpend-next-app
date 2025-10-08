@@ -7,6 +7,7 @@ import {
   updateProfile,
   updateEmail,
   updatePassword,
+  onAuthStateChanged,
   User
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -302,14 +303,31 @@ export const signInSuperAdmin = async ({ email, password }: SuperAdminData): Pro
 // Check if current user is superadmin
 export const isSuperAdmin = async (): Promise<boolean> => {
   try {
-    const user = getCurrentUser();
-    if (!user) return false;
-    
-    const userDoc = await getDoc(doc(db, 'users', user.uid));
-    if (!userDoc.exists()) return false;
-    
-    const userData = userDoc.data();
-    return userData.userType === 1;
+    // Wait for auth state to be ready
+    return new Promise((resolve) => {
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        unsubscribe(); // Clean up listener
+        
+        if (!user) {
+          resolve(false);
+          return;
+        }
+        
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (!userDoc.exists()) {
+            resolve(false);
+            return;
+          }
+          
+          const userData = userDoc.data();
+          resolve(userData.userType === 1);
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          resolve(false);
+        }
+      });
+    });
   } catch (error) {
     console.error('Error checking superadmin status:', error);
     return false;
