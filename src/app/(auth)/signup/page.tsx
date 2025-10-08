@@ -159,9 +159,28 @@ export default function SignupPage() {
            /[!@#$%^&*(),.?":{}|<>]/.test(password);
   };
 
+  // Check if form contains restricted content
+  const hasRestrictedContent = () => {
+    return formData.fullName.toLowerCase().includes('superadmin') ||
+           formData.email.toLowerCase().includes('superadmin');
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Real-time validation for name field
+    if (name === 'fullName' && value.toLowerCase().includes('superadmin')) {
+      setError('The name "superadmin" is restricted and not allowed for registration');
+      return;
+    }
+    
+    // Real-time validation for email field
+    if (name === 'email' && value.toLowerCase().includes('superadmin')) {
+      setError('Email addresses containing "superadmin" are restricted and not allowed for registration');
+      return;
+    }
+    
     if (error) setError(''); // Clear error when user starts typing
   };
 
@@ -170,8 +189,21 @@ export default function SignupPage() {
       setError('Full name is required');
       return false;
     }
+    
+    // Check if name contains "superadmin" (case-insensitive)
+    if (formData.fullName.toLowerCase().includes('superadmin')) {
+      setError('The name "superadmin" is restricted and not allowed for registration');
+      return false;
+    }
+    
     if (!formData.email.trim()) {
       setError('Email is required');
+      return false;
+    }
+    
+    // Check if email contains "superadmin" (case-insensitive)
+    if (formData.email.toLowerCase().includes('superadmin')) {
+      setError('Email addresses containing "superadmin" are restricted and not allowed for registration');
       return false;
     }
     
@@ -386,7 +418,8 @@ export default function SignupPage() {
                      !formData.fullName || 
                      !formData.confirmPassword ||
                      !isPasswordValid(formData.password) ||
-                     formData.password !== formData.confirmPassword}
+                     formData.password !== formData.confirmPassword ||
+                     hasRestrictedContent()}
             className="w-full bg-white text-black font-bold py-3 px-4 rounded-lg hover:bg-gray-200 transition duration-300 mt-6
                       shadow-[0_0_20px_rgba(255,255,255,0.1)]
                       bg-[linear-gradient(to_bottom,rgba(255,255,255,1),rgba(230,230,230,1))]
