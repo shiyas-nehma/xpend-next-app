@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useCurrency } from '@/context/CurrencyContext';
 import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, ChevronRightIcon } from '@/components/icons/NavIcons';
 import CategoryModal from '@/components/category/CategoryModal';
 import ConfirmationModal from '@/components/common/ConfirmationModal';
@@ -101,6 +102,7 @@ const CategoryStatsCard: React.FC<{
   expenses: any[]; 
   incomes: any[];
 }> = ({ categories, expenses, incomes }) => {
+  const { format } = useCurrency();
   const stats = React.useMemo(() => {
     const expenseCategories = categories.filter(c => c.type === 'Expense');
     const incomeCategories = categories.filter(c => c.type === 'Income');
@@ -207,7 +209,7 @@ const CategoryStatsCard: React.FC<{
             transition={{ delay: 0.5, duration: 0.5, type: "spring" }}
             key={stats.totalBudget}
           >
-            ${stats.totalBudget.toLocaleString()}
+            {format(stats.totalBudget, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </motion.p>
           <p className="text-xs text-brand-text-secondary">Monthly allocation</p>
         </motion.div>
@@ -226,7 +228,7 @@ const CategoryStatsCard: React.FC<{
             transition={{ delay: 0.6, duration: 0.5, type: "spring" }}
             key={stats.totalSpent}
           >
-            ${stats.totalSpent.toLocaleString()}
+            {format(stats.totalSpent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </motion.p>
           <p className="text-xs text-brand-text-secondary">
             {stats.budgetUtilization.toFixed(1)}% of budget
@@ -247,7 +249,7 @@ const CategoryStatsCard: React.FC<{
             transition={{ delay: 0.7, duration: 0.5, type: "spring" }}
             key={stats.remainingBudget}
           >
-            ${Math.abs(stats.remainingBudget).toLocaleString()}
+            {format(Math.abs(stats.remainingBudget), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </motion.p>
           <p className="text-xs text-brand-text-secondary">
             {stats.remainingBudget >= 0 ? 'Under budget' : 'Over budget'}
@@ -284,6 +286,7 @@ const CategoryTransactions: React.FC<{
   incomes: Income[];
   isVisible: boolean;
 }> = ({ category, expenses, incomes, isVisible }) => {
+  const { format } = useCurrency();
   const categoryTransactions = React.useMemo(() => {
     const categoryKey = category.docId || category.id.toString();
     
@@ -340,11 +343,7 @@ const CategoryTransactions: React.FC<{
               <p className={`font-semibold ${
                 transaction.type === 'expense' ? 'text-red-400' : 'text-green-400'
               }`}>
-                {transaction.type === 'expense' ? '-' : '+'}$
-                {transaction.amount.toLocaleString('en-US', { 
-                  minimumFractionDigits: 2, 
-                  maximumFractionDigits: 2 
-                })}
+                {transaction.type === 'expense' ? '-' : '+'}{format(transaction.amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/^[-+]/,'')}
               </p>
             </div>
           </motion.div>
@@ -392,6 +391,7 @@ export default function CategoryPage() {
   const { addToast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const userLocale = typeof window !== 'undefined' ? navigator.language : 'en-US';
+  const { format } = useCurrency();
 
   const handleAddNew = () => {
     if (!user) {
@@ -865,7 +865,7 @@ export default function CategoryPage() {
                                   animate={{ opacity: 1, scale: 1 }}
                                   transition={{ type: "spring", stiffness: 400 }}
                                 >
-                                  ${actualData.amount.toLocaleString(userLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  {format(actualData.amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </motion.p>
                                 <div className="flex items-center justify-between">
                                   <p className="text-sm text-brand-text-secondary">
@@ -918,8 +918,8 @@ export default function CategoryPage() {
                                           initial={{ opacity: 0, y: 5 }}
                                           animate={{ opacity: 1, y: 0 }}
                                           transition={{ duration: 0.3 }}
-                                        >
-                                            ${Math.round(actualData.amount).toLocaleString(userLocale)} / ${category.budget.toLocaleString(userLocale)}
+                    >
+                      {format(Math.round(actualData.amount))} / {format(category.budget)}
                                         </motion.span>
                                     </div>
                                     <div className="w-full bg-brand-surface-2 rounded-full h-2 overflow-hidden">
