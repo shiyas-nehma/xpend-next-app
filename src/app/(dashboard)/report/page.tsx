@@ -213,6 +213,10 @@ const ReportPage: React.FC = () => {
     prevStartDate.setDate(prevStartDate.getDate() - periodDays);
     const prevEndDate = new Date(startDate);
     
+    // Use safe arrays for previous period calculation
+    const safeIncomes = Array.isArray(incomes) ? incomes : [];
+    const safeExpenses = Array.isArray(expenses) ? expenses : [];
+    
     const prevIncomes = safeIncomes.filter(i => {
       const date = new Date(i.date);
       return date >= prevStartDate && date < prevEndDate;
