@@ -236,7 +236,7 @@ export default function SignupPage() {
     setError('');
 
     try {
-      await signInWithGoogle();
+      const { user, userData } = await signInWithGoogle();
       addToast('Account created successfully!', 'success');
       router.push('/onboarding');
     } catch (error: any) {

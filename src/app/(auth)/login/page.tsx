@@ -47,7 +47,7 @@ export default function LoginPage() {
     setError('');
 
     try {
-      await signIn(formData);
+      const { user, userData } = await signIn(formData);
       addToast('Welcome back!', 'success');
       router.push('/dashboard');
     } catch (error: any) {
@@ -64,7 +64,7 @@ export default function LoginPage() {
     setError('');
 
     try {
-      await signInWithGoogle();
+      const { user, userData } = await signInWithGoogle();
       addToast('Welcome back!', 'success');
       router.push('/dashboard');
     } catch (error: any) {
