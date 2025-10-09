@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProfileSettings from '@/components/settings/ProfileSettings';
 import NotificationSettings from '@/components/settings/NotificationSettings';
@@ -19,7 +20,32 @@ interface SettingsPageProps {
 }
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ initialTab }) => {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(initialTab || TABS.PROFILE);
+  const [stripeSuccess, setStripeSuccess] = useState(false);
+
+  // Handle Stripe success redirect
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id');
+    const success = searchParams.get('success');
+    
+    if (sessionId && success === 'true') {
+      console.log('Stripe checkout success detected:', sessionId);
+      setStripeSuccess(true);
+      setActiveTab(TABS.BILLING); // Switch to billing tab
+      
+      // Clear URL parameters after handling
+      if (typeof window !== 'undefined') {
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
+      
+      // Show success message temporarily
+      setTimeout(() => {
+        setStripeSuccess(false);
+      }, 5000);
+    }
+  }, [searchParams]);
 
   // Update active tab when initialTab prop changes
   React.useEffect(() => {

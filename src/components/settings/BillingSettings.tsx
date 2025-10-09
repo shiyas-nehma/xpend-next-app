@@ -30,10 +30,34 @@ const BillingSettings: React.FC = () => {
             setLoading(false);
         });
 
-        // Load user's current subscription using real-time listener
+        // Initial load: Get user's latest subscription
+        const loadLatestSubscription = async () => {
+            try {
+                const latestSubscription = await FirebaseUserSubscriptionService.getUserSubscription(user.uid);
+                console.log('Loaded latest subscription:', latestSubscription ? {
+                    id: latestSubscription.id,
+                    planName: latestSubscription.planName,
+                    createdAt: latestSubscription.createdAt,
+                    status: latestSubscription.status
+                } : 'None');
+                setUserSubscription(latestSubscription);
+            } catch (error) {
+                console.error('Error loading latest subscription:', error);
+            }
+        };
+        
+        loadLatestSubscription();
+
+        // Set up real-time listener for updates (will now return latest subscription)
         const unsubscribeSubscription = FirebaseUserSubscriptionService.onSubscriptionChange(
             user.uid,
             (subscription) => {
+                console.log('Subscription updated via listener:', subscription ? {
+                    id: subscription.id,
+                    planName: subscription.planName,
+                    createdAt: subscription.createdAt,
+                    status: subscription.status
+                } : 'None');
                 setUserSubscription(subscription);
             }
         );
@@ -76,7 +100,25 @@ const BillingSettings: React.FC = () => {
                     }),
                 });
 
-                const result = await response.json();
+                console.log('Free plan API response status:', response.status);
+                console.log('Free plan API response headers:', response.headers.get('content-type'));
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Free plan API error response:', errorText);
+                    throw new Error(`API request failed: ${response.status} - ${errorText}`);
+                }
+
+                let result;
+                try {
+                    result = await response.json();
+                } catch (jsonError) {
+                    const responseText = await response.text();
+                    console.error('Failed to parse JSON response:', responseText);
+                    throw new Error(`Invalid JSON response: ${responseText}`);
+                }
+
+                console.log('Free plan API parsed result:', result);
 
                 if (result.success) {
                     setShowPlanModal(false);
@@ -215,7 +257,25 @@ const BillingSettings: React.FC = () => {
                 }),
             });
 
-            const result = await response.json();
+            console.log('Cancel subscription API response status:', response.status);
+            console.log('Cancel subscription API response headers:', response.headers.get('content-type'));
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Cancel subscription API error response:', errorText);
+                throw new Error(`API request failed: ${response.status} - ${errorText}`);
+            }
+
+            let result;
+            try {
+                result = await response.json();
+            } catch (jsonError) {
+                const responseText = await response.text();
+                console.error('Failed to parse JSON response:', responseText);
+                throw new Error(`Invalid JSON response: ${responseText}`);
+            }
+
+            console.log('Cancel subscription API parsed result:', result);
 
             if (!result.success) {
                 throw new Error(result.error || 'Failed to cancel subscription');
@@ -293,6 +353,27 @@ const BillingSettings: React.FC = () => {
                                 </span>
                             </div>
                             <p className="text-lg font-semibold text-brand-text-primary">{userSubscription.planName}</p>
+                            
+                            {/* Debug: Show subscription details */}
+                            <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-lg">
+                                <p className="text-xs text-gray-600">
+                                    <strong>Subscription ID:</strong> {userSubscription.id}
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                    <strong>Created:</strong> {userSubscription.createdAt.toLocaleString('en-US', {
+                                        year: 'numeric',
+                                        month: 'long', 
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        timeZoneName: 'short'
+                                    })}
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                    <strong>Status:</strong> {userSubscription.status}
+                                </p>
+                            </div>
                             
                             {/* Trial Information */}
                             {isInTrial && (

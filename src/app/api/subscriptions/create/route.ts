@@ -23,16 +23,23 @@ export async function POST(request: NextRequest) {
     
     if (!isDevelopment && (!authorization || !authorization.startsWith('Bearer '))) {
       console.log('Authorization failed: Missing or invalid token');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ 
+        error: 'Unauthorized',
+        success: false 
+      }, { status: 401 });
     }
 
-    // TODO: In production, verify Firebase token properly
-    // const token = authorization.split('Bearer ')[1];
-    // const decodedToken = await auth.verifyIdToken(token);
-    // For now, we'll assume the token is valid and extract userId from request body
-    
-    const body = await request.json();
-    console.log('Request body received:', JSON.stringify(body, null, 2));
+    let body;
+    try {
+      body = await request.json();
+      console.log('Request body received:', JSON.stringify(body, null, 2));
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return NextResponse.json({
+        error: 'Invalid JSON in request body',
+        success: false
+      }, { status: 400 });
+    }
     
     const { 
       userId, 
@@ -57,7 +64,10 @@ export async function POST(request: NextRequest) {
         userDetails: !!userDetails 
       });
       return NextResponse.json(
-        { error: 'Missing required fields: userId, planId, billingCycle, userDetails' },
+        { 
+          error: 'Missing required fields: userId, planId, billingCycle, userDetails',
+          success: false 
+        },
         { status: 400 }
       );
     }
@@ -147,7 +157,10 @@ export async function POST(request: NextRequest) {
     
     if (!plan) {
       console.log('Plan not found for planId:', planId);
-      return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+      return NextResponse.json({ 
+        error: 'Plan not found',
+        success: false 
+      }, { status: 404 });
     }
     
     console.log('Plan details found:', {
@@ -197,7 +210,25 @@ export async function POST(request: NextRequest) {
     // 2. Get or create price in Stripe
     const priceId = await StripeSubscriptionService.getOrCreatePrice(plan, billingCycle);
 
-    // 3. Create Stripe Checkout Session
+    // 3. CRITICAL: Create Firebase subscription record FIRST
+    console.log('Creating Firebase subscription record for paid plan...');
+    const firebaseSubscription = await FirebaseUserSubscriptionService.createSubscription(
+      {
+        userId,
+        planId,
+        userDetails,
+        billingCycle,
+      },
+      plan
+    );
+    
+    console.log('Firebase subscription created:', {
+      id: firebaseSubscription.id,
+      status: firebaseSubscription.status,
+      planName: firebaseSubscription.planName
+    });
+
+    // 4. Create Stripe Checkout Session
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: stripeCustomer.id,
       payment_method_types: ['card'],
@@ -216,13 +247,20 @@ export async function POST(request: NextRequest) {
           userId,
           planId,
           billingCycle,
+          firebaseSubscriptionId: firebaseSubscription.id, // Link to Firebase record
         },
       },
       metadata: {
         userId,
         planId,
         billingCycle,
+        firebaseSubscriptionId: firebaseSubscription.id, // Link to Firebase record
       },
+    });
+
+    console.log('Stripe checkout session created:', {
+      sessionId: checkoutSession.id,
+      firebaseSubscriptionId: firebaseSubscription.id
     });
 
     // Return checkout session for frontend redirect
@@ -231,11 +269,13 @@ export async function POST(request: NextRequest) {
       checkout: true,
       sessionId: checkoutSession.id,
       url: checkoutSession.url,
+      firebaseSubscriptionId: firebaseSubscription.id,
       plan: {
         id: plan.id,
         name: plan.name,
         monthlyPrice: plan.monthlyPrice,
       },
+      message: 'Firebase subscription created, redirecting to Stripe checkout',
     });
 
   } catch (error) {

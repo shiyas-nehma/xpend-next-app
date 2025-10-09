@@ -85,6 +85,18 @@ service cloud.firestore {
       allow read, write, create, delete: if isAuthenticated();
     }
 
+    // Active User Subscriptions collection - Users can read/write their own active subscription
+    // Document ID = userId for unique constraint
+    match /active_user_subscriptions/{userId} {
+      allow read, write, create, delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Payment Details collection - Users can read/write their own payment records
+    match /payment_details/{paymentId} {
+      allow read, write, create, delete: if isAuthenticated();
+      allow list: if isAuthenticated(); // Allow querying user's payment history
+    }
+
     // Fallback rule for any other collections (temporary for development)
     match /{document=**} {
       allow read, write: if isAuthenticated();

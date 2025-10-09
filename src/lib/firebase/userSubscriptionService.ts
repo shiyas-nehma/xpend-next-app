@@ -7,6 +7,8 @@ import {
   query, 
   where, 
   getDocs,
+  orderBy,
+  limit,
   onSnapshot,
   Timestamp,
   serverTimestamp
@@ -14,6 +16,8 @@ import {
 import { db } from './config';
 import { UserSubscription, SubscriptionCreateData, SubscriptionUpdateData } from '@/types/subscription';
 import { Plan } from './subscriptionService';
+import ActiveUserSubscriptionService from './activeUserSubscriptionService';
+import PaymentDetailsService from './paymentDetailsService';
 
 const COLLECTION_NAME = 'user_subscriptions';
 
@@ -38,54 +42,94 @@ class FirebaseUserSubscriptionService {
   // Convert Date to Firestore timestamp
   private static subscriptionToFirestore(subscription: Partial<UserSubscription>): Record<string, unknown> {
     const data: Record<string, unknown> = {
-      ...subscription,
       updatedAt: serverTimestamp(),
     };
 
-    // Convert dates to Firestore timestamps, omitting undefined values
-    if (subscription.startDate) {
+    // Copy non-date fields, filtering out undefined values
+    Object.entries(subscription).forEach(([key, value]) => {
+      if (value !== undefined && !['startDate', 'endDate', 'trialEndDate', 'stripeCurrentPeriodStart', 'stripeCurrentPeriodEnd', 'nextBillingDate', 'cancelledAt', 'createdAt', 'updatedAt'].includes(key)) {
+        data[key] = value;
+      }
+    });
+
+    // Convert dates to Firestore timestamps, only if they exist and are not null/undefined
+    if (subscription.startDate instanceof Date) {
       data.startDate = Timestamp.fromDate(subscription.startDate);
     }
-    if (subscription.endDate) {
+    if (subscription.endDate instanceof Date) {
       data.endDate = Timestamp.fromDate(subscription.endDate);
     }
-    if (subscription.trialEndDate) {
+    if (subscription.trialEndDate instanceof Date) {
       data.trialEndDate = Timestamp.fromDate(subscription.trialEndDate);
+    } else if (subscription.trialEndDate === null) {
+      data.trialEndDate = null; // Explicitly set null for no trial
     }
-    if (subscription.stripeCurrentPeriodStart) {
+    if (subscription.stripeCurrentPeriodStart instanceof Date) {
       data.stripeCurrentPeriodStart = Timestamp.fromDate(subscription.stripeCurrentPeriodStart);
     }
-    if (subscription.stripeCurrentPeriodEnd) {
+    if (subscription.stripeCurrentPeriodEnd instanceof Date) {
       data.stripeCurrentPeriodEnd = Timestamp.fromDate(subscription.stripeCurrentPeriodEnd);
     }
-    if (subscription.nextBillingDate) {
+    if (subscription.nextBillingDate instanceof Date) {
       data.nextBillingDate = Timestamp.fromDate(subscription.nextBillingDate);
     }
-    if (subscription.cancelledAt) {
+    if (subscription.cancelledAt instanceof Date) {
       data.cancelledAt = Timestamp.fromDate(subscription.cancelledAt);
+    }
+    if (subscription.createdAt instanceof Date) {
+      data.createdAt = Timestamp.fromDate(subscription.createdAt);
     }
 
     return data;
   }
 
-  // Get user's current subscription
+    // Get user's current/latest subscription (most recent one)
   static async getUserSubscription(userId: string): Promise<UserSubscription | null> {
     try {
+      console.log('Getting latest subscription for user:', userId);
+      
+      // First try to get from active_user_subscriptions (most efficient)
+      const activeSubscription = await ActiveUserSubscriptionService.getActiveSubscription(userId);
+      if (activeSubscription) {
+        console.log('Found active subscription:', activeSubscription.id);
+        return activeSubscription;
+      }
+      
+      // Fallback: Query all user subscriptions and get the most recent one
+      // Simplified query to avoid composite index requirement
       const q = query(
         collection(db, COLLECTION_NAME),
-        where('userId', '==', userId),
-        where('status', 'in', ['active', 'trialing', 'past_due'])
+        where('userId', '==', userId)
+        // Removed orderBy to avoid index requirement - we'll sort in memory
       );
       
       const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
+        console.log('No subscriptions found for user:', userId);
         return null;
       }
       
-      // Return the first active subscription (should only be one)
-      const doc = querySnapshot.docs[0];
-      return this.firestoreToSubscription(doc.data(), doc.id);
+      // Filter and sort in memory to get the latest subscription
+      const subscriptions = querySnapshot.docs
+        .map(doc => this.firestoreToSubscription(doc.data(), doc.id))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      
+      const latestSubscription = subscriptions[0];
+      
+      console.log('Found latest subscription from query (memory sorted):', latestSubscription.id);
+      
+      // If this subscription is active but not in active_user_subscriptions, sync it
+      if (['active', 'trialing'].includes(latestSubscription.status)) {
+        try {
+          await ActiveUserSubscriptionService.setActiveSubscription(userId, latestSubscription);
+          console.log('Synced latest subscription to active_user_subscriptions');
+        } catch (syncError) {
+          console.warn('Could not sync to active_user_subscriptions:', syncError);
+        }
+      }
+      
+      return latestSubscription;
     } catch (error) {
       console.error('Error getting user subscription:', error);
       throw error;
@@ -98,6 +142,22 @@ class FirebaseUserSubscriptionService {
     planDetails: Plan
   ): Promise<UserSubscription> {
     try {
+      console.log('Creating subscription for user:', subscriptionData.userId);
+      
+      // First, ensure we clean up any existing active subscriptions for this user
+      await this.ensureUserHasOnlyOneActiveSubscription(subscriptionData.userId);
+      
+      // Also deactivate any existing active subscription in the active_user_subscriptions table
+      try {
+        const existingActiveSubscription = await ActiveUserSubscriptionService.getActiveSubscription(subscriptionData.userId);
+        if (existingActiveSubscription) {
+          console.log('Found existing active subscription, will be replaced with new one');
+          // The new subscription will automatically replace it since we use userId as document ID
+        }
+      } catch (activeCheckError) {
+        console.warn('Could not check existing active subscription:', activeCheckError);
+      }
+      
       const subscriptionId = doc(collection(db, COLLECTION_NAME)).id;
       
       const now = new Date();
@@ -140,7 +200,51 @@ class FirebaseUserSubscriptionService {
       const firestoreData = this.subscriptionToFirestore(subscription);
       firestoreData.createdAt = serverTimestamp();
       
+      // 1. Create subscription in main user_subscriptions table
       await setDoc(doc(db, COLLECTION_NAME, subscriptionId), firestoreData);
+      console.log('✅ 1. Created subscription in user_subscriptions table:', subscriptionId);
+      
+      // 2. Update active_user_subscriptions table (unique userId with latest subscription)
+      try {
+        if (['active', 'trialing'].includes(subscription.status)) {
+          await ActiveUserSubscriptionService.setActiveSubscription(subscription.userId, subscription);
+          console.log('✅ 2. Updated active_user_subscriptions table with LATEST subscription for userId:', subscription.userId);
+          console.log('   - New active subscription ID:', subscription.id);
+          console.log('   - Plan:', subscription.planName);
+          console.log('   - Status:', subscription.status);
+        }
+      } catch (activeError) {
+        console.error('❌ Error updating active subscription collection:', activeError);
+        // Don't fail the main subscription creation if active collection update fails
+      }
+      
+      // 3. Create payment record in payment_details table
+      try {
+        const paymentAmount = planDetails.monthlyPrice || 0; // Free plans have 0 amount
+        const paymentRecord = await PaymentDetailsService.createPayment({
+          userId: subscription.userId,
+          subscriptionId: subscription.id,
+          paymentAmount,
+          currency: 'usd',
+          modeOfPayment: paymentAmount === 0 ? 'other' : 'pending', // 'pending' for paid plans until Stripe processes
+          paymentStatus: paymentAmount === 0 ? 'completed' : 'pending',
+          userDetails: subscription.userDetails,
+          planName: planDetails.name,
+          billingCycle: subscription.billingCycle,
+          description: `Subscription created: ${planDetails.name}`,
+        });
+        console.log('✅ 3. Created payment record in payment_details table:', paymentRecord.id);
+      } catch (paymentError) {
+        console.error('❌ Error creating payment record:', paymentError);
+        // Don't fail the main subscription creation if payment record creation fails
+      }
+      
+      console.log('🎉 Successfully created subscription with all 3 tables updated:', {
+        subscriptionId: subscription.id,
+        userId: subscription.userId,
+        planName: subscription.planName,
+        status: subscription.status
+      });
       
       return subscription;
     } catch (error) {
@@ -158,7 +262,30 @@ class FirebaseUserSubscriptionService {
       const docRef = doc(db, COLLECTION_NAME, subscriptionId);
       const firestoreData = this.subscriptionToFirestore(updateData);
       
+      // 1. Update main subscription record
       await updateDoc(docRef, firestoreData);
+      console.log('✅ Updated subscription in user_subscriptions table:', subscriptionId);
+      
+      // 2. Update active subscription table based on status change
+      try {
+        const updatedDoc = await getDoc(docRef);
+        if (updatedDoc.exists()) {
+          const updatedSubscription = this.firestoreToSubscription(updatedDoc.data(), updatedDoc.id);
+          
+          // Update active subscription collection based on status
+          if (['active', 'trialing'].includes(updatedSubscription.status)) {
+            await ActiveUserSubscriptionService.setActiveSubscription(updatedSubscription.userId, updatedSubscription);
+            console.log('✅ Updated active subscription collection for user:', updatedSubscription.userId);
+          } else if (['cancelled', 'expired'].includes(updatedSubscription.status)) {
+            await ActiveUserSubscriptionService.removeActiveSubscription(updatedSubscription.userId);
+            console.log('✅ Removed active subscription for user:', updatedSubscription.userId);
+          }
+        }
+      } catch (activeError) {
+        console.error('❌ Error updating active subscription collection:', activeError);
+        // Don't fail the main update if active collection update fails
+      }
+      
     } catch (error) {
       console.error('Error updating subscription:', error);
       throw error;
@@ -245,10 +372,12 @@ class FirebaseUserSubscriptionService {
     userId: string, 
     callback: (subscription: UserSubscription | null) => void
   ): () => void {
+    // Simplified query to avoid composite index requirement
+    // We'll filter by userId first, then sort in memory
     const q = query(
       collection(db, COLLECTION_NAME),
-      where('userId', '==', userId),
-      where('status', 'in', ['active', 'trialing', 'past_due'])
+      where('userId', '==', userId)
+      // Removed orderBy and status filter to avoid composite index requirement
     );
 
     return onSnapshot(q, (querySnapshot) => {
@@ -257,9 +386,24 @@ class FirebaseUserSubscriptionService {
         return;
       }
       
-      const doc = querySnapshot.docs[0];
-      const subscription = this.firestoreToSubscription(doc.data(), doc.id);
-      callback(subscription);
+      // Filter and sort in memory to get the latest active subscription
+      const subscriptions = querySnapshot.docs
+        .map(doc => this.firestoreToSubscription(doc.data(), doc.id))
+        .filter(sub => ['active', 'trialing', 'past_due'].includes(sub.status))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      
+      const latestSubscription = subscriptions[0] || null;
+      
+      if (latestSubscription) {
+        console.log('Latest subscription from listener (memory filtered):', {
+          id: latestSubscription.id,
+          planName: latestSubscription.planName,
+          createdAt: latestSubscription.createdAt,
+          status: latestSubscription.status
+        });
+      }
+      
+      callback(latestSubscription);
     }, (error) => {
       console.error('Error in subscription listener:', error);
       callback(null);
@@ -300,6 +444,66 @@ class FirebaseUserSubscriptionService {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
     return Math.max(0, diffDays);
+  }
+
+  // Ensure user has only one active subscription (cleanup utility)
+  static async ensureUserHasOnlyOneActiveSubscription(userId: string): Promise<void> {
+    try {
+      console.log('Ensuring user has only one active subscription:', userId);
+      
+      const q = query(
+        collection(db, COLLECTION_NAME),
+        where('userId', '==', userId),
+        where('status', 'in', ['active', 'trialing'])
+      );
+      
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.docs.length <= 1) {
+        console.log(`User ${userId} has ${querySnapshot.docs.length} active subscription(s) - no cleanup needed`);
+        return;
+      }
+      
+      console.log(`User ${userId} has ${querySnapshot.docs.length} active subscriptions - cleaning up duplicates`);
+      
+      // Keep the most recent subscription, cancel the others
+      const subscriptions = querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime());
+      
+      const keepSubscription = subscriptions[0];
+      const cancelSubscriptions = subscriptions.slice(1);
+      
+      console.log(`Keeping subscription ${keepSubscription.id}, cancelling ${cancelSubscriptions.length} others`);
+      
+      // Cancel older subscriptions
+      for (const sub of cancelSubscriptions) {
+        await this.updateSubscription(sub.id, {
+          status: 'cancelled',
+          endDate: new Date(),
+          cancellationReason: 'Duplicate subscription cleanup - newer subscription created',
+          cancelledAt: new Date(),
+        });
+      }
+      
+      // Update active_user_subscriptions table with the latest subscription
+      if (keepSubscription && ['active', 'trialing'].includes(keepSubscription.status)) {
+        try {
+          const latestSubscription = await this.getSubscriptionById(keepSubscription.id);
+          if (latestSubscription) {
+            await ActiveUserSubscriptionService.setActiveSubscription(userId, latestSubscription);
+            console.log(`Updated active_user_subscriptions table with latest subscription: ${keepSubscription.id}`);
+          }
+        } catch (activeUpdateError) {
+          console.error('Error updating active subscription table during cleanup:', activeUpdateError);
+        }
+      }
+      
+      console.log(`Cleanup completed for user ${userId}`);
+    } catch (error) {
+      console.error('Error in cleanup:', error);
+      // Don't throw error as this is a cleanup utility
+    }
   }
 }
 
