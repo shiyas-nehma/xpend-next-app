@@ -11,12 +11,16 @@
   "dependencies": {
     "@google/genai": "^1.22.0",
     "@google/generative-ai": "^0.24.1",
-    "firebase": "^12.3.0",
+    "@stripe/stripe-js": "^8.0.0",
+    "firebase": "^12.4.0",
+    "firebase-admin": "^13.5.0",
     "framer-motion": "^12.23.22",
     "next": "15.5.4",
+    "node-fetch": "^3.3.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "recharts": "^3.2.1",
+    "stripe": "^19.1.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {

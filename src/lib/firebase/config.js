@@ -1,8 +1,9 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+// Analytics is optional and may not be available in all environments
+// import { getAnalytics } from "firebase/analytics";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -32,11 +33,9 @@ if (process.env.NODE_ENV !== 'production') {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Analytics only on client side
-let analytics;
-if (typeof window !== 'undefined') {
-  analytics = getAnalytics(app);
-}
+// Analytics is disabled to avoid import issues
+// You can enable it later by installing firebase/analytics package
+const analytics = null;
 
 const db = getFirestore(app);
 const auth = getAuth(app);

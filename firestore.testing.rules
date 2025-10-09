@@ -1,0 +1,36 @@
+// Firestore Security Rules for Xpend App (Development Testing)
+// TEMPORARY RULES - Allow all access for testing subscription system
+// Replace with secure rules after testing is complete
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Subscription plans - Allow all access for testing
+    match /subscription_plans/{planId} {
+      allow read, write, create, delete: if true;
+    }
+    
+    match /subscriptionPlans/{planId} {
+      allow read, write, create, delete: if true;
+    }
+    
+    // User Subscriptions collection - Allow all access for testing
+    match /user_subscriptions/{subscriptionId} {
+      allow read, write, create, delete: if true;
+    }
+    
+    match /userSubscriptions/{subscriptionId} {
+      allow read, write, create, delete: if true;
+    }
+
+    // Debug collection - Allow all operations for testing
+    match /debug-test/{document} {
+      allow read, write, create, delete: if true;
+    }
+
+    // Fallback rule for development - allow authenticated users
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

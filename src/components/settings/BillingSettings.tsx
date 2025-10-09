@@ -3,9 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import SettingsCard from './SettingsCard';
-import { CreditCardIcon, CalendarIcon, CheckCircleIcon, PlusIcon } from '@/components/icons/NavIcons';
+import { CreditCardIcon, CalendarIcon, CheckCircleIcon, PlusIcon, ExclamationTriangleIcon } from '@/components/icons/NavIcons';
 import { SubscriptionPlanService, Plan } from '@/lib/firebase/subscriptionService';
-import { UserSubscriptionService, UserSubscription } from '@/lib/services/userSubscriptionService';
+import FirebaseUserSubscriptionService from '@/lib/firebase/userSubscriptionService';
+import { UserSubscription } from '@/types/subscription';
+import SubscriptionUtils from '@/utils/subscriptionUtils';
+import getStripe from '@/lib/stripe/stripe-client';
 
 const BillingSettings: React.FC = () => {
     const { user } = useAuth();
@@ -13,69 +16,208 @@ const BillingSettings: React.FC = () => {
     const [availablePlans, setAvailablePlans] = useState<Plan[]>([]);
     const [showPlanModal, setShowPlanModal] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [processingPayment, setProcessingPayment] = useState(false);
 
     useEffect(() => {
-        const loadData = async () => {
-            if (!user) return;
-            
-            try {
-                // Load user's current subscription
-                const subscription = await UserSubscriptionService.getUserSubscription(user.uid);
-                setUserSubscription(subscription);
-            } catch (error) {
-                console.error('Error loading user subscription:', error);
-            }
-        };
+        if (!user) return;
 
         // Load available subscription plans
         const unsubscribe = SubscriptionPlanService.onPlansChange((plans) => {
+            console.log('Plans loaded:', plans);
             const activePlans = plans.filter(plan => plan.status === 'active');
+            console.log('Active plans:', activePlans);
             setAvailablePlans(activePlans);
             setLoading(false);
         });
 
-        loadData();
+        // Load user's current subscription using real-time listener
+        const unsubscribeSubscription = FirebaseUserSubscriptionService.onSubscriptionChange(
+            user.uid,
+            (subscription) => {
+                setUserSubscription(subscription);
+            }
+        );
 
-        return () => unsubscribe();
+        return () => {
+            unsubscribe();
+            unsubscribeSubscription();
+        };
     }, [user]);
 
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-        }).format(amount);
-    };
-
-    const calculateAnnualPrice = (monthlyPrice: number, discountPct: number) => {
-        const annualBase = monthlyPrice * 12;
-        return annualBase * (1 - discountPct / 100);
-    };
-
-    const handleSelectPlan = async (plan: Plan) => {
+    const handleSelectPlan = async (plan: Plan, billingCycle: 'monthly' | 'annual' = 'monthly') => {
         if (!user) return;
         
+        console.log('=== Creating subscription ===');
+        console.log('Plan:', plan);
+        console.log('Billing cycle:', billingCycle);
+        console.log('User ID:', user?.uid);
+        
         try {
-            // TODO: Integrate with actual payment processor (Stripe)
-            // For now, we'll simulate creating a subscription
-            const subscription = await UserSubscriptionService.createSubscription(
-                user.uid, 
-                plan.id, 
-                plan.name, 
-                plan.monthlyPrice
-            );
+            setProcessingPayment(true);
+
+            // Handle free plans (no Stripe integration needed)
+            if (!SubscriptionUtils.requiresPayment(plan)) {
+                console.log('Creating free plan subscription...');
+                const response = await fetch('/api/subscriptions/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${await user.getIdToken()}`,
+                    },
+                    body: JSON.stringify({
+                        userId: user.uid,
+                        planId: plan.id,
+                        billingCycle,
+                        userDetails: {
+                            email: user.email,
+                            firstName: user.displayName?.split(' ')[0],
+                            lastName: user.displayName?.split(' ').slice(1).join(' '),
+                        },
+                    }),
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    setShowPlanModal(false);
+                    // Subscription will be updated via real-time listener
+                } else {
+                    throw new Error(result.error || 'Failed to create subscription');
+                }
+                return;
+            }
+
+            // Handle paid plans with Stripe
+            const stripe = await getStripe();
+            if (!stripe) {
+                throw new Error('Stripe failed to load');
+            }
+
+            // Create subscription via API
+            const response = await fetch('/api/subscriptions/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${await user.getIdToken()}`,
+                },
+                body: JSON.stringify({
+                    userId: user.uid,
+                    planId: plan.id,
+                    billingCycle,
+                    userDetails: {
+                        email: user.email,
+                        firstName: user.displayName?.split(' ')[0],
+                        lastName: user.displayName?.split(' ').slice(1).join(' '),
+                    },
+                }),
+            });
+
+            console.log('=== Raw Response Details ===');
+            console.log('Response status:', response.status);
+            console.log('Response ok:', response.ok);
+            console.log('Response status text:', response.statusText);
+            console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+            let result;
+            try {
+                const responseText = await response.text();
+                console.log('Raw response text:', responseText);
+                result = JSON.parse(responseText);
+            } catch (parseError) {
+                console.error('Failed to parse JSON response:', parseError);
+                throw new Error(`Invalid JSON response: ${parseError.message}`);
+            }
             
-            setUserSubscription(subscription);
-            setShowPlanModal(false);
-            
-            // In a real app, you would:
-            // 1. Redirect to Stripe/payment processor
-            // 2. Handle payment success/failure
-            // 3. Update subscription status based on payment result
-            
-            console.log('Subscription created successfully:', subscription);
+            console.log('=== API Response Details ===');
+            console.log('Response status:', response.status);
+            console.log('Response ok:', response.ok);
+            console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+            console.log('Result object:', result);
+            console.log('Result success:', result.success);
+            console.log('Result error:', result.error);
+            console.log('Result type:', typeof result);
+            console.log('Result keys:', Object.keys(result));
+
+            if (!response.ok || !result.success) {
+                const errorDetails = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    responseOk: response.ok,
+                    resultSuccess: result.success,
+                    error: result.error,
+                    details: result.details,
+                    fullResult: result
+                };
+                console.error('Subscription creation failed:', errorDetails);
+                
+                const errorMessage = result.error 
+                    || result.details 
+                    || `API returned ${response.status} ${response.statusText}`;
+                    
+                throw new Error(errorMessage);
+            }
+
+            // If subscription has trial period, no payment needed immediately
+            if (plan.trialDays > 0) {
+                setShowPlanModal(false);
+                return;
+            }
+
+            // If payment is required, redirect to Stripe Checkout or handle payment
+            if (result.clientSecret) {
+                // Handle payment confirmation if needed
+                // For now, we'll close the modal and let webhook handle the rest
+                setShowPlanModal(false);
+            }
+
         } catch (error) {
             console.error('Error creating subscription:', error);
-            // Handle error (show toast, etc.)
+            
+            // Enhanced error logging for debugging
+            if (error instanceof Error) {
+                console.error('Error details:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
+                alert(`Failed to create subscription: ${error.message}`);
+            } else {
+                console.error('Unknown error type:', typeof error, error);
+                alert('Failed to create subscription. Please check the console for details.');
+            }
+        } finally {
+            setProcessingPayment(false);
+        }
+    };
+
+    const handleCancelSubscription = async () => {
+        if (!userSubscription || !user) return;
+
+        if (!confirm('Are you sure you want to cancel your subscription?')) return;
+
+        try {
+            const response = await fetch('/api/subscriptions/cancel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${await user.getIdToken()}`,
+                },
+                body: JSON.stringify({
+                    subscriptionId: userSubscription.id,
+                    reason: 'User requested cancellation',
+                }),
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to cancel subscription');
+            }
+
+            // Subscription will be updated via real-time listener
+        } catch (error) {
+            console.error('Error cancelling subscription:', error);
+            alert('Failed to cancel subscription. Please try again.');
         }
     };
 
@@ -90,6 +232,14 @@ const BillingSettings: React.FC = () => {
             </SettingsCard>
         );
     }
+
+    const isActive = SubscriptionUtils.isActive(userSubscription);
+    const isInTrial = SubscriptionUtils.isInTrial(userSubscription);
+    const trialDaysRemaining = SubscriptionUtils.getTrialDaysRemaining(userSubscription);
+    const statusText = SubscriptionUtils.getStatusDisplayText(userSubscription);
+    const statusColor = SubscriptionUtils.getStatusColor(userSubscription);
+    const isCancelledButActive = SubscriptionUtils.isCancelledButActive(userSubscription);
+
     return (
         <>
             <SettingsCard 
@@ -97,12 +247,22 @@ const BillingSettings: React.FC = () => {
                 footer={
                     <>
                         {userSubscription ? (
-                            <button 
-                                onClick={() => setShowPlanModal(true)}
-                                className="bg-brand-surface-2 border border-brand-border text-sm font-bold px-4 py-2 rounded-lg hover:bg-brand-border transition-colors"
-                            >
-                                Change Plan
-                            </button>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => setShowPlanModal(true)}
+                                    className="bg-brand-surface-2 border border-brand-border text-sm font-bold px-4 py-2 rounded-lg hover:bg-brand-border transition-colors"
+                                >
+                                    Change Plan
+                                </button>
+                                {isActive && !isCancelledButActive && (
+                                    <button 
+                                        onClick={handleCancelSubscription}
+                                        className="bg-red-100 border border-red-300 text-red-700 text-sm font-bold px-4 py-2 rounded-lg hover:bg-red-200 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                )}
+                            </div>
                         ) : (
                             <button 
                                 onClick={() => setShowPlanModal(true)}
@@ -116,20 +276,55 @@ const BillingSettings: React.FC = () => {
                 }
             >
                 {userSubscription ? (
-                    // User has active subscription - show current plan and payment method
+                    // User has subscription - show current plan and status
                     <>
                         <div className="bg-brand-surface-2 border border-brand-border rounded-xl p-4 mb-4">
-                            <p className="text-sm text-brand-text-secondary">Current Plan</p>
-                            <p className="text-lg font-semibold text-brand-text-primary">{userSubscription.planName}</p>
-                            <p className="text-sm text-brand-text-secondary mt-2">
-                                Renews on <span className="text-brand-text-primary font-medium">
-                                    {userSubscription.endDate.toLocaleDateString('en-US', { 
-                                        year: 'numeric', 
-                                        month: 'long', 
-                                        day: 'numeric' 
-                                    })}
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm text-brand-text-secondary">Current Plan</p>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium bg-${statusColor}-100 text-${statusColor}-700`}>
+                                    {statusText}
                                 </span>
+                            </div>
+                            <p className="text-lg font-semibold text-brand-text-primary">{userSubscription.planName}</p>
+                            
+                            {/* Trial Information */}
+                            {isInTrial && (
+                                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <div className="flex items-center gap-2">
+                                        <ExclamationTriangleIcon className="w-4 h-4 text-blue-600" />
+                                        <span className="text-sm text-blue-700">
+                                            Trial ends in {trialDaysRemaining} day{trialDaysRemaining !== 1 ? 's' : ''}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {/* Billing Information */}
+                            <p className="text-sm text-brand-text-secondary mt-2">
+                                {isCancelledButActive ? (
+                                    <>Subscription ends on <span className="text-brand-text-primary font-medium">
+                                        {userSubscription.endDate.toLocaleDateString('en-US', { 
+                                            year: 'numeric', 
+                                            month: 'long', 
+                                            day: 'numeric' 
+                                        })}
+                                    </span></>
+                                ) : (
+                                    <>Next billing: <span className="text-brand-text-primary font-medium">
+                                        {SubscriptionUtils.getNextBillingDateDisplay(userSubscription)}
+                                    </span></>
+                                )}
                             </p>
+                            
+                            {/* Price Information */}
+                            <div className="mt-2 flex items-center gap-2">
+                                <span className="text-lg font-bold text-brand-text-primary">
+                                    {SubscriptionUtils.formatCurrency(userSubscription.monthlyPrice)}
+                                </span>
+                                <span className="text-sm text-brand-text-secondary">
+                                    / {userSubscription.billingCycle === 'annual' ? 'year' : 'month'}
+                                </span>
+                            </div>
                         </div>
                         
                         {userSubscription.paymentMethod && (
@@ -140,7 +335,7 @@ const BillingSettings: React.FC = () => {
                                         <CreditCardIcon className="w-8 h-8 text-brand-text-secondary" />
                                         <div>
                                             <p className="font-medium text-brand-text-primary">
-                                                Visa ending in {userSubscription.paymentMethod.last4}
+                                                {userSubscription.paymentMethod.brand.charAt(0).toUpperCase() + userSubscription.paymentMethod.brand.slice(1)} ending in {userSubscription.paymentMethod.last4}
                                             </p>
                                             <p className="text-sm text-brand-text-secondary">
                                                 Expires {String(userSubscription.paymentMethod.expiryMonth).padStart(2, '0')}/{userSubscription.paymentMethod.expiryYear}
@@ -178,6 +373,7 @@ const BillingSettings: React.FC = () => {
                     currentPlan={userSubscription?.planId}
                     onSelectPlan={handleSelectPlan}
                     onClose={() => setShowPlanModal(false)}
+                    processing={processingPayment}
                 />
             )}
         </>
@@ -188,22 +384,19 @@ const BillingSettings: React.FC = () => {
 interface PlanSelectionModalProps {
     plans: Plan[];
     currentPlan?: string;
-    onSelectPlan: (plan: Plan) => void;
+    onSelectPlan: (plan: Plan, billingCycle: 'monthly' | 'annual') => void;
     onClose: () => void;
+    processing: boolean;
 }
 
 const PlanSelectionModal: React.FC<PlanSelectionModalProps> = ({ 
     plans, 
     currentPlan, 
     onSelectPlan, 
-    onClose 
+    onClose,
+    processing
 }) => {
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-        }).format(amount);
-    };
+    const [selectedBillingCycle, setSelectedBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
     const calculateAnnualPrice = (monthlyPrice: number, discountPct: number) => {
         const annualBase = monthlyPrice * 12;
@@ -218,12 +411,40 @@ const PlanSelectionModal: React.FC<PlanSelectionModalProps> = ({
                         <h2 className="text-2xl font-bold text-gray-900">Choose Your Plan</h2>
                         <button
                             onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600 text-2xl"
+                            disabled={processing}
+                            className="text-gray-400 hover:text-gray-600 text-2xl disabled:opacity-50"
                         >
                             ×
                         </button>
                     </div>
                     <p className="text-gray-600 mt-2">Select the perfect plan for your expense management needs</p>
+                    
+                    {/* Billing Cycle Toggle */}
+                    <div className="mt-4 flex items-center justify-center">
+                        <div className="bg-gray-100 rounded-lg p-1 flex">
+                            <button
+                                onClick={() => setSelectedBillingCycle('monthly')}
+                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                    selectedBillingCycle === 'monthly'
+                                        ? 'bg-white text-gray-900 shadow-sm'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                            >
+                                Monthly
+                            </button>
+                            <button
+                                onClick={() => setSelectedBillingCycle('annual')}
+                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                    selectedBillingCycle === 'annual'
+                                        ? 'bg-white text-gray-900 shadow-sm'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                            >
+                                Annual
+                                <span className="ml-1 text-green-600 text-xs">Save up to 20%</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="p-6">
@@ -231,6 +452,14 @@ const PlanSelectionModal: React.FC<PlanSelectionModalProps> = ({
                         {plans.map((plan) => {
                             const isCurrentPlan = currentPlan === plan.id;
                             const isHighlighted = plan.highlight;
+                            const isFree = !SubscriptionUtils.requiresPayment(plan);
+                            
+                            const displayPrice = selectedBillingCycle === 'monthly' 
+                                ? plan.monthlyPrice
+                                : plan.annualDiscountPct 
+                                    ? calculateAnnualPrice(plan.monthlyPrice, plan.annualDiscountPct) / 12
+                                    : plan.monthlyPrice;
+
                             const annualPrice = plan.annualDiscountPct ? 
                                 calculateAnnualPrice(plan.monthlyPrice, plan.annualDiscountPct) : 
                                 plan.monthlyPrice * 12;
@@ -244,8 +473,8 @@ const PlanSelectionModal: React.FC<PlanSelectionModalProps> = ({
                                             : isCurrentPlan
                                             ? 'border-green-500 bg-green-50'
                                             : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-                                    }`}
-                                    onClick={() => !isCurrentPlan && onSelectPlan(plan)}
+                                    } ${processing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    onClick={() => !isCurrentPlan && !processing && onSelectPlan(plan, selectedBillingCycle)}
                                 >
                                     {isHighlighted && (
                                         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
@@ -261,21 +490,33 @@ const PlanSelectionModal: React.FC<PlanSelectionModalProps> = ({
                                         </div>
                                     )}
 
+                                    {isFree && (
+                                        <div className="absolute -top-3 left-4">
+                                            <span className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-medium">
+                                                Free
+                                            </span>
+                                        </div>
+                                    )}
+
                                     <div className="text-center mb-6">
                                         <h3 className="text-xl font-bold text-gray-900 mb-2">{plan.name}</h3>
                                         <div className="mb-2">
                                             <span className="text-3xl font-bold text-gray-900">
-                                                {formatCurrency(plan.monthlyPrice)}
+                                                {isFree ? 'Free' : SubscriptionUtils.formatCurrency(displayPrice)}
                                             </span>
-                                            <span className="text-gray-600">/month</span>
+                                            {!isFree && (
+                                                <span className="text-gray-600">
+                                                    /{selectedBillingCycle === 'monthly' ? 'month' : 'month'}
+                                                </span>
+                                            )}
                                         </div>
-                                        {plan.annualDiscountPct && plan.annualDiscountPct > 0 && (
+                                        {!isFree && selectedBillingCycle === 'annual' && plan.annualDiscountPct && plan.annualDiscountPct > 0 && (
                                             <div className="text-sm text-green-600">
-                                                {formatCurrency(annualPrice)}/year 
+                                                {SubscriptionUtils.formatCurrency(annualPrice)}/year 
                                                 <span className="ml-1">({plan.annualDiscountPct}% off annually)</span>
                                             </div>
                                         )}
-                                        {plan.trialDays > 0 && (
+                                        {plan.trialDays > 0 && !isFree && (
                                             <div className="text-sm text-blue-600 mt-1">
                                                 {plan.trialDays}-day free trial
                                             </div>
@@ -302,16 +543,27 @@ const PlanSelectionModal: React.FC<PlanSelectionModalProps> = ({
                                     </div>
 
                                     <button
-                                        disabled={isCurrentPlan}
+                                        disabled={isCurrentPlan || processing}
                                         className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
                                             isCurrentPlan
                                                 ? 'bg-green-100 text-green-800 cursor-not-allowed'
+                                                : processing
+                                                ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                                                 : isHighlighted
                                                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                                                 : 'bg-gray-900 text-white hover:bg-gray-800'
                                         }`}
                                     >
-                                        {isCurrentPlan ? 'Current Plan' : 'Select Plan'}
+                                        {processing 
+                                            ? 'Processing...'
+                                            : isCurrentPlan 
+                                                ? 'Current Plan' 
+                                                : isFree 
+                                                    ? 'Get Started Free'
+                                                    : plan.trialDays > 0
+                                                        ? `Start Free Trial`
+                                                        : 'Select Plan'
+                                        }
                                     </button>
                                 </div>
                             );

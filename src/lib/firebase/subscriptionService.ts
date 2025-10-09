@@ -5,6 +5,7 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   Timestamp,
   query,
@@ -98,6 +99,34 @@ export const SubscriptionPlanService = {
       console.error('[SubscriptionPlanService] listener error', err);
       callback([]);
     });
+  },
+
+  async getPlanById(planId: string): Promise<Plan | null> {
+    try {
+      console.log('getPlanById called with planId:', planId);
+      console.log('Using collection:', COLLECTION);
+      
+      const docRef = doc(db, COLLECTION, planId);
+      console.log('Document reference created');
+      
+      const docSnap = await getDoc(docRef);
+      console.log('Document fetch completed, exists:', docSnap.exists());
+      
+      if (!docSnap.exists()) {
+        console.log('Plan not found for ID:', planId);
+        return null;
+      }
+      
+      const plan = toPlan(docSnap.id, docSnap.data());
+      console.log('Plan converted successfully:', plan?.name);
+      return plan;
+    } catch (error) {
+      console.error('Error in getPlanById:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      console.error('Error code:', (error as any)?.code);
+      throw error; // Re-throw to propagate the error
+    }
   },
 
   async createPlan(input: PlanCreateInput): Promise<string> {

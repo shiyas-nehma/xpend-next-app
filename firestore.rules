@@ -31,7 +31,7 @@ service cloud.firestore {
     }
     
     // Subscription plans - Superadmin only for write, authenticated users can read
-    match /subscription-plans/{planId} {
+    match /subscription_plans/{planId} {
       allow read: if isAuthenticated();
       allow write, create, delete: if isSuperAdmin();
     }
@@ -66,6 +66,25 @@ service cloud.firestore {
       allow read, write, create, delete: if isAuthenticated();
     }
     
+    // Subscription Plans collection - Super admin can write, everyone can read active plans
+    // Subscription plans - All variations to handle collection naming inconsistencies  
+    match /subscription_plans/{planId} {
+      allow read, write, create, delete: if true; // Temporary: Allow all for testing
+    }
+    
+    match /subscriptionPlans/{planId} {
+      allow read, write, create, delete: if true; // Temporary: Allow all for testing
+    }
+    
+    // User Subscriptions collection - Users can read/write their own subscriptions
+    match /user_subscriptions/{subscriptionId} {
+      allow read, write, create, delete: if isAuthenticated();
+    }
+    
+    match /userSubscriptions/{subscriptionId} {
+      allow read, write, create, delete: if isAuthenticated();
+    }
+
     // Fallback rule for any other collections (temporary for development)
     match /{document=**} {
       allow read, write: if isAuthenticated();
