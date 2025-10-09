@@ -139,7 +139,21 @@ export const signIn = async ({ email, password }: LoginData): Promise<{ user: Us
     console.log('Regular user login successful:', user.uid);
     return { user, userData };
   } catch (error: any) {
-    console.error('Regular user login error:', error);
+    // Use intelligent error logging - expected auth errors as info, unexpected as error
+    const isExpectedError = error?.code && [
+      'auth/invalid-credential',
+      'auth/user-disabled',
+      'auth/too-many-requests',
+      'auth/wrong-password',
+      'auth/user-not-found'
+    ].includes(error.code);
+    
+    if (isExpectedError) {
+      console.info('Authentication failed (expected):', error.code);
+    } else {
+      console.error('Regular user login error:', error);
+    }
+    
     // Ensure we always throw an error to be caught by the UI
     throw error;
   }
@@ -208,7 +222,22 @@ export const signInWithGoogle = async (): Promise<{ user: User; userData: any }>
     
     return { user, userData };
   } catch (error: any) {
-    console.error('Google sign-in error:', error);
+    // Use intelligent error logging - expected auth errors as info, unexpected as error
+    const isExpectedError = error?.code && [
+      'auth/invalid-credential',
+      'auth/user-disabled',
+      'auth/too-many-requests',
+      'auth/popup-closed-by-user',
+      'auth/popup-blocked',
+      'auth/cancelled-popup-request'
+    ].includes(error.code);
+    
+    if (isExpectedError) {
+      console.info('Google sign-in failed (expected):', error.code);
+    } else {
+      console.error('Google sign-in error:', error);
+    }
+    
     // Ensure we always throw an error to be caught by the UI
     throw error;
   }
@@ -333,7 +362,21 @@ export const signInSuperAdmin = async ({ email, password }: SuperAdminData): Pro
     console.log('Superadmin login successful:', user.uid);
     return { user, userData };
   } catch (error: any) {
-    console.error('Superadmin login error:', error);
+    // Use intelligent error logging - expected auth errors as info, unexpected as error
+    const isExpectedError = error?.code && [
+      'auth/invalid-credential',
+      'auth/user-disabled',
+      'auth/too-many-requests',
+      'auth/wrong-password',
+      'auth/user-not-found'
+    ].includes(error.code);
+    
+    if (isExpectedError) {
+      console.info('Superadmin authentication failed (expected):', error.code);
+    } else {
+      console.error('Superadmin login error:', error);
+    }
+    
     throw new Error(error.message || 'Failed to authenticate superadmin');
   }
 };
@@ -378,25 +421,35 @@ export const getAuthErrorMessage = (errorCode: string): string => {
     case 'auth/user-not-found':
       return 'No account found with this email address.';
     case 'auth/wrong-password':
-      return 'Incorrect password.';
+      return 'Incorrect password. Please try again.';
     case 'auth/invalid-credential':
-      return 'Invalid email or password.';
+      return 'Invalid email or password. Please check your credentials and try again.';
     case 'auth/invalid-login-credentials':
-      return 'Invalid email or password.';
+      return 'Invalid email or password. Please check your credentials and try again.';
     case 'auth/email-already-in-use':
       return 'An account with this email already exists.';
     case 'auth/weak-password':
       return 'Password must be at least 8 characters with uppercase, number, and special character.';
     case 'auth/invalid-email':
-      return 'Invalid email address.';
+      return 'Please enter a valid email address.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled. Please contact support.';
     case 'auth/too-many-requests':
-      return 'Too many failed attempts. Please try again later.';
+      return 'Too many failed attempts. Please wait a moment and try again.';
+    case 'auth/operation-not-allowed':
+      return 'This sign-in method is not enabled. Please contact support.';
     case 'auth/popup-closed-by-user':
       return 'Sign-in popup was closed. Please try again.';
     case 'auth/cancelled-popup-request':
       return 'Sign-in was cancelled. Please try again.';
+    case 'auth/popup-blocked':
+      return 'Sign-in popup was blocked. Please allow popups and try again.';
+    case 'auth/account-exists-with-different-credential':
+      return 'An account with this email exists with a different sign-in method.';
     case 'auth/network-request-failed':
       return 'Network error. Please check your connection and try again.';
+    case 'auth/internal-error':
+      return 'An internal error occurred. Please try again later.';
     default:
       return 'An error occurred. Please try again.';
   }

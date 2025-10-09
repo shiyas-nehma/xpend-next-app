@@ -253,9 +253,34 @@ export default function SignupPage() {
       });
       addToast('Account created successfully!', 'success');
       router.push('/onboarding');
-    } catch (error: any) {
-      console.error('Signup error in component:', error); // Debug log
-      const errorMessage = getAuthErrorMessage(error.code) || error.message;
+    } catch (error: unknown) {
+      let errorMessage = 'Account creation failed. Please try again.';
+      
+      // Handle Firebase auth errors
+      if (error && typeof error === 'object' && 'code' in error) {
+        const firebaseError = error as { code: string; message: string };
+        errorMessage = getAuthErrorMessage(firebaseError.code);
+        
+        // Only log unexpected errors to console
+        const expectedErrors = [
+          'auth/email-already-in-use',
+          'auth/weak-password',
+          'auth/invalid-email',
+          'auth/operation-not-allowed'
+        ];
+        
+        if (!expectedErrors.includes(firebaseError.code)) {
+          console.error('Unexpected signup error:', error);
+        } else {
+          console.log(`Signup failed: ${firebaseError.code}`);
+        }
+      } else if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = error.message as string;
+        console.error('Custom signup error:', error);
+      } else {
+        console.error('Unknown signup error:', error);
+      }
+      
       setError(errorMessage);
       addToast(errorMessage, 'error');
     } finally {
@@ -271,8 +296,28 @@ export default function SignupPage() {
       const { user, userData } = await signInWithGoogle();
       addToast('Account created successfully!', 'success');
       router.push('/onboarding');
-    } catch (error: any) {
-      const errorMessage = getAuthErrorMessage(error.code) || error.message;
+    } catch (error: unknown) {
+      let errorMessage = 'Google sign-up failed. Please try again.';
+      
+      if (error && typeof error === 'object' && 'code' in error) {
+        const firebaseError = error as { code: string; message: string };
+        errorMessage = getAuthErrorMessage(firebaseError.code);
+        
+        const expectedErrors = [
+          'auth/popup-closed-by-user',
+          'auth/cancelled-popup-request',
+          'auth/account-exists-with-different-credential'
+        ];
+        
+        if (!expectedErrors.includes(firebaseError.code)) {
+          console.error('Unexpected Google signup error:', error);
+        } else {
+          console.log(`Google signup failed: ${firebaseError.code}`);
+        }
+      } else {
+        console.error('Unknown Google signup error:', error);
+      }
+      
       setError(errorMessage);
       addToast(errorMessage, 'error');
     } finally {

@@ -59,8 +59,30 @@ export default function SuperAdminLoginPage() {
       // Use window.location.href for more reliable redirect
       console.log('Redirecting using window.location.href...');
       window.location.href = '/superadmin/dashboard';
-    } catch (error: any) {
-      console.error('Superadmin login error:', error);
+    } catch (error: unknown) {
+      let errorMessage = 'Superadmin login failed. Please try again.';
+      
+      // Handle Firebase auth errors
+      if (error && typeof error === 'object' && 'code' in error) {
+        const firebaseError = error as { code: string; message: string };
+        errorMessage = getAuthErrorMessage(firebaseError.code);
+        
+        // Only log unexpected errors
+        const expectedErrors = [
+          'auth/invalid-credential',
+          'auth/invalid-login-credentials',
+          'auth/wrong-password',
+          'auth/user-not-found'
+        ];
+        
+        if (!expectedErrors.includes(firebaseError.code)) {
+          console.error('Unexpected superadmin login error:', error);
+        } else {
+          console.log(`Superadmin authentication failed: ${firebaseError.code}`);
+        }
+      } else {
+        console.error('Superadmin login error:', error);
+      }
       
       // If login fails and credentials are default, try to create superadmin
       if (formData.email === 'superadmin@superadmin.com' && formData.password === '123456') {
@@ -90,14 +112,14 @@ export default function SuperAdminLoginPage() {
           // Use window.location.href for more reliable redirect
           console.log('Redirecting using window.location.href after creation...');
           window.location.href = '/superadmin/dashboard';
-        } catch (createError: any) {
+        } catch (createError: unknown) {
           console.error('Failed to create superadmin:', createError);
           setError('Failed to create or authenticate superadmin account');
           addToast('Failed to create or authenticate superadmin account', 'error');
         }
       } else {
-        setError(error.message || 'Invalid admin credentials');
-        addToast(error.message || 'Invalid admin credentials', 'error');
+        setError(errorMessage);
+        addToast(errorMessage, 'error');
       }
     } finally {
       setLoading(false);
