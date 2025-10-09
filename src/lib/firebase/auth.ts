@@ -154,8 +154,14 @@ export const signIn = async ({ email, password }: LoginData): Promise<{ user: Us
       console.error('Regular user login error:', error);
     }
     
-    // Ensure we always throw an error to be caught by the UI
-    throw error;
+    // Preserve the error code but enhance the message for better UX
+    if (error?.code) {
+      const enhancedError = new Error(getAuthErrorMessage(error.code)) as any;
+      enhancedError.code = error.code;
+      throw enhancedError;
+    } else {
+      throw new Error('Authentication failed');
+    }
   }
 };
 
@@ -238,8 +244,14 @@ export const signInWithGoogle = async (): Promise<{ user: User; userData: any }>
       console.error('Google sign-in error:', error);
     }
     
-    // Ensure we always throw an error to be caught by the UI
-    throw error;
+    // Preserve the error code but enhance the message for better UX
+    if (error?.code) {
+      const enhancedError = new Error(getAuthErrorMessage(error.code)) as any;
+      enhancedError.code = error.code;
+      throw enhancedError;
+    } else {
+      throw new Error('Google sign-in failed');
+    }
   }
 };
 
@@ -377,7 +389,14 @@ export const signInSuperAdmin = async ({ email, password }: SuperAdminData): Pro
       console.error('Superadmin login error:', error);
     }
     
-    throw new Error(error.message || 'Failed to authenticate superadmin');
+    // Preserve the error code but enhance the message for better UX
+    if (error?.code) {
+      const enhancedError = new Error(getAuthErrorMessage(error.code)) as any;
+      enhancedError.code = error.code;
+      throw enhancedError;
+    } else {
+      throw new Error('Failed to authenticate superadmin');
+    }
   }
 };
 
@@ -395,22 +414,39 @@ export const isSuperAdmin = async (): Promise<boolean> => {
         }
         
         try {
+          console.log('isSuperAdmin: Checking user document for UID:', user.uid);
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (!userDoc.exists()) {
+            console.log('isSuperAdmin: User document does not exist');
             resolve(false);
             return;
           }
           
           const userData = userDoc.data();
-          resolve(userData.userType === 1);
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          resolve(false);
+          const isAdmin = userData.userType === 1;
+          console.log('isSuperAdmin: User type check result:', isAdmin);
+          resolve(isAdmin);
+        } catch (error: any) {
+          console.error('isSuperAdmin: Error fetching user data:', error.message);
+          // If there's a permissions error, return false but don't crash
+          if (error.code === 'permission-denied' || error.message?.includes('Missing or insufficient permissions')) {
+            console.log('isSuperAdmin: Permissions error, returning false');
+            resolve(false);
+          } else {
+            console.error('isSuperAdmin: Unexpected error:', error);
+            resolve(false);
+          }
         }
       });
+      
+      // Timeout after 10 seconds to prevent hanging
+      setTimeout(() => {
+        console.log('isSuperAdmin: Timeout reached, returning false');
+        resolve(false);
+      }, 10000);
     });
-  } catch (error) {
-    console.error('Error checking superadmin status:', error);
+  } catch (error: any) {
+    console.error('isSuperAdmin: Top-level error:', error.message);
     return false;
   }
 };

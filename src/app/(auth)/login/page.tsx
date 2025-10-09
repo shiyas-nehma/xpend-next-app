@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { EyeIcon, EyeOffIcon, GoogleIcon, FacebookIcon } from '@/components/icons/NavIcons';
-import { signIn, signInWithGoogle, getAuthErrorMessage } from '@/lib/firebase/auth';
+import { signIn, signInWithGoogle } from '@/lib/firebase/auth';
 import { useToast } from '@/hooks/useToast';
 
 const Logo: React.FC = () => (
@@ -65,31 +65,12 @@ export default function LoginPage() {
     } catch (error: unknown) {
       let errorMessage = 'Login failed. Please try again.';
       
-      // Handle Firebase auth errors
-      if (error && typeof error === 'object' && 'code' in error) {
-        const firebaseError = error as { code: string; message: string };
-        errorMessage = getAuthErrorMessage(firebaseError.code);
-        
-        // Only log unexpected errors to console (not common auth failures)
-        const expectedErrors = [
-          'auth/invalid-credential',
-          'auth/invalid-login-credentials', 
-          'auth/wrong-password',
-          'auth/user-not-found',
-          'auth/invalid-email'
-        ];
-        
-        if (!expectedErrors.includes(firebaseError.code)) {
-          console.error('Unexpected login error:', error);
-        } else {
-          console.log(`Authentication failed: ${firebaseError.code}`);
-        }
-      } else if (error && typeof error === 'object' && 'message' in error) {
-        // Handle custom errors from our auth functions
+      // Handle enhanced auth errors (our auth functions now provide better messages)
+      if (error && typeof error === 'object' && 'message' in error) {
         errorMessage = error.message as string;
-        console.error('Custom auth error:', error);
+        // The auth functions already handle console logging appropriately
       } else {
-        console.error('Unknown login error:', error);
+        console.error('Unexpected login error:', error);
       }
       
       setError(errorMessage);
@@ -110,30 +91,12 @@ export default function LoginPage() {
     } catch (error: unknown) {
       let errorMessage = 'Google sign-in failed. Please try again.';
       
-      // Handle Firebase auth errors
-      if (error && typeof error === 'object' && 'code' in error) {
-        const firebaseError = error as { code: string; message: string };
-        errorMessage = getAuthErrorMessage(firebaseError.code);
-        
-        // Only log unexpected errors to console
-        const expectedErrors = [
-          'auth/popup-closed-by-user',
-          'auth/cancelled-popup-request',
-          'auth/invalid-credential',
-          'auth/account-exists-with-different-credential'
-        ];
-        
-        if (!expectedErrors.includes(firebaseError.code)) {
-          console.error('Unexpected Google login error:', error);
-        } else {
-          console.log(`Google authentication failed: ${firebaseError.code}`);
-        }
-      } else if (error && typeof error === 'object' && 'message' in error) {
-        // Handle custom errors from our auth functions
+      // Handle enhanced auth errors (our auth functions now provide better messages)
+      if (error && typeof error === 'object' && 'message' in error) {
         errorMessage = error.message as string;
-        console.error('Custom Google auth error:', error);
+        // The auth functions already handle console logging appropriately
       } else {
-        console.error('Unknown Google login error:', error);
+        console.error('Unexpected Google login error:', error);
       }
       
       setError(errorMessage);

@@ -62,26 +62,14 @@ export default function SuperAdminLoginPage() {
     } catch (error: unknown) {
       let errorMessage = 'Superadmin login failed. Please try again.';
       
-      // Handle Firebase auth errors
-      if (error && typeof error === 'object' && 'code' in error) {
-        const firebaseError = error as { code: string; message: string };
-        errorMessage = getAuthErrorMessage(firebaseError.code);
+      // Handle enhanced auth errors (our auth functions now provide better messages)
+      if (error && typeof error === 'object' && 'message' in error) {
+        const authError = error as { message: string; code?: string };
+        errorMessage = authError.message; // Use the enhanced message from our auth functions
         
-        // Only log unexpected errors
-        const expectedErrors = [
-          'auth/invalid-credential',
-          'auth/invalid-login-credentials',
-          'auth/wrong-password',
-          'auth/user-not-found'
-        ];
-        
-        if (!expectedErrors.includes(firebaseError.code)) {
-          console.error('Unexpected superadmin login error:', error);
-        } else {
-          console.log(`Superadmin authentication failed: ${firebaseError.code}`);
-        }
+        // The auth functions already handle console logging, no need to duplicate
       } else {
-        console.error('Superadmin login error:', error);
+        console.error('Unexpected superadmin login error:', error);
       }
       
       // If login fails and credentials are default, try to create superadmin
