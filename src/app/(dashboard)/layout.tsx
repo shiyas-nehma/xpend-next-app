@@ -45,7 +45,6 @@ export default function RootLayout({
           'Accounts': '/accounts',
           'Income': '/income',
           'Expense': '/expense',
-          'Recurring': '/recurring',
           'Category': '/category',
           'Budget': '/budget',
           'Goals': '/goals',
