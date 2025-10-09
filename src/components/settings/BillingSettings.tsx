@@ -157,13 +157,20 @@ const BillingSettings: React.FC = () => {
                 throw new Error(errorMessage);
             }
 
+            // Handle Stripe Checkout Session (for paid plans)
+            if (result.checkout && result.url) {
+                console.log('Redirecting to Stripe Checkout:', result.url);
+                window.location.href = result.url;
+                return;
+            }
+
             // If subscription has trial period, no payment needed immediately
             if (plan.trialDays > 0) {
                 setShowPlanModal(false);
                 return;
             }
 
-            // If payment is required, redirect to Stripe Checkout or handle payment
+            // For direct subscriptions (legacy flow)
             if (result.clientSecret) {
                 // Handle payment confirmation if needed
                 // For now, we'll close the modal and let webhook handle the rest

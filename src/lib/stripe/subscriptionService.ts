@@ -154,7 +154,6 @@ export class StripeSubscriptionService {
         },
         product_data: {
           name: `${plan.name} - ${billingCycle}`,
-          description: plan.description || `${plan.name} subscription`,
           metadata: {
             planId: plan.id,
             billingCycle,

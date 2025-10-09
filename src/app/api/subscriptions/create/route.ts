@@ -4,6 +4,7 @@ import StripeCustomerService from '@/lib/stripe/customerService';
 import StripeSubscriptionService from '@/lib/stripe/subscriptionService';
 import FirebaseUserSubscriptionService from '@/lib/firebase/userSubscriptionService';
 import { AdminSubscriptionPlanService } from '@/lib/firebase/adminSubscriptionService';
+import stripe from '@/lib/stripe/stripe';
 
 export async function POST(request: NextRequest) {
   console.log('=== Subscription Creation API Called ===');
@@ -70,10 +71,10 @@ export async function POST(request: NextRequest) {
       console.log('Plan fetch result:', plan ? 'Found' : 'Not found');
       
       // If plan not found, and we're in development, create a test plan
-      if (!plan && planId === '1') {
-        console.log('Creating test plan for development...');
+      if (!plan && (planId === '1' || planId === '2')) {
+        console.log(`Creating test plan for development (planId: ${planId})...`);
         try {
-          const testPlanId = await AdminSubscriptionPlanService.createPlan({
+          const testPlanData = planId === '1' ? {
             name: 'Free Test Plan',
             monthlyPrice: 0,
             annualDiscountPct: 0,
@@ -97,7 +98,33 @@ export async function POST(request: NextRequest) {
             maxDuration: 365,
             durationType: 'days' as const,
             sortOrder: 0,
-          });
+          } : {
+            name: 'Pro Test Plan',
+            monthlyPrice: 9.99,
+            annualDiscountPct: 20,
+            features: ['All free features', 'Unlimited transactions', 'Advanced analytics', 'Priority support'],
+            featureLimits: {
+              maxCategories: 999,
+              maxIncomes: 999,
+              maxExpenses: 999,
+              maxAccounts: 10,
+              maxBudgets: 20,
+              analyticsAccess: true,
+              reportGeneration: true,
+              dataExport: true,
+              apiAccess: true,
+              prioritySupport: true,
+              customIntegrations: false,
+            },
+            status: 'active' as const,
+            subscribers: 0,
+            trialDays: 7,
+            maxDuration: 365,
+            durationType: 'days' as const,
+            sortOrder: 1,
+          };
+
+          const testPlanId = await AdminSubscriptionPlanService.createPlan(testPlanData);
           
           console.log('Test plan created with ID:', testPlanId);
           // Fetch the newly created plan
@@ -159,7 +186,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating paid plan subscription...');
 
-    // Handle paid plans with Stripe
+    // Handle paid plans with Stripe Checkout
     // 1. Create or get Stripe customer
     const stripeCustomer = await StripeCustomerService.getOrCreateCustomer({
       email: userDetails.email,
@@ -170,12 +197,27 @@ export async function POST(request: NextRequest) {
     // 2. Get or create price in Stripe
     const priceId = await StripeSubscriptionService.getOrCreatePrice(plan, billingCycle);
 
-    // 3. Create subscription in Stripe
-    const stripeSubscription = await StripeSubscriptionService.createSubscription({
-      customerId: stripeCustomer.id,
-      priceId,
-      paymentMethodId,
-      trialPeriodDays: plan.trialDays > 0 ? plan.trialDays : undefined,
+    // 3. Create Stripe Checkout Session
+    const checkoutSession = await stripe.checkout.sessions.create({
+      customer: stripeCustomer.id,
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      mode: 'subscription',
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/settings?session_id={CHECKOUT_SESSION_ID}&success=true`,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/settings?canceled=true`,
+      subscription_data: {
+        trial_period_days: plan.trialDays > 0 ? plan.trialDays : undefined,
+        metadata: {
+          userId,
+          planId,
+          billingCycle,
+        },
+      },
       metadata: {
         userId,
         planId,
@@ -183,53 +225,17 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // 4. Create subscription in Firebase
-    const subscription = await FirebaseUserSubscriptionService.createSubscription(
-      {
-        userId,
-        planId,
-        userDetails,
-        billingCycle,
-        paymentMethodId,
-      },
-      plan
-    );
-
-    // 5. Update Firebase subscription with Stripe data
-    await FirebaseUserSubscriptionService.updateSubscription(subscription.id, {
-      stripeCustomerId: stripeCustomer.id,
-      stripeSubscriptionId: stripeSubscription.id,
-      status: StripeSubscriptionService.mapStripeStatusToOurStatus(stripeSubscription.status),
-      stripeCurrentPeriodStart: stripeSubscription.current_period_start 
-        ? new Date(stripeSubscription.current_period_start * 1000) 
-        : undefined,
-      stripeCurrentPeriodEnd: stripeSubscription.current_period_end 
-        ? new Date(stripeSubscription.current_period_end * 1000) 
-        : undefined,
-    });
-
-    // 6. Handle payment confirmation for non-trial subscriptions
-    let clientSecret = null;
-    if (stripeSubscription.latest_invoice && typeof stripeSubscription.latest_invoice === 'object') {
-      const paymentIntent = stripeSubscription.latest_invoice.payment_intent;
-      if (paymentIntent && typeof paymentIntent === 'object') {
-        clientSecret = paymentIntent.client_secret;
-      }
-    }
-
+    // Return checkout session for frontend redirect
     return NextResponse.json({
       success: true,
-      subscription: {
-        id: subscription.id,
-        status: subscription.status,
-        planName: subscription.planName,
-        startDate: subscription.startDate,
-        endDate: subscription.endDate,
-        trialEndDate: subscription.trialEndDate,
-        isTrialActive: subscription.isTrialActive,
+      checkout: true,
+      sessionId: checkoutSession.id,
+      url: checkoutSession.url,
+      plan: {
+        id: plan.id,
+        name: plan.name,
+        monthlyPrice: plan.monthlyPrice,
       },
-      stripeSubscriptionId: stripeSubscription.id,
-      clientSecret, // For payment confirmation on frontend
     });
 
   } catch (error) {
