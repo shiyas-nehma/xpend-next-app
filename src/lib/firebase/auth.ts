@@ -1,5 +1,5 @@
 import { 
-  createUserWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword, 
   signOut,
   GoogleAuthProvider,
@@ -14,6 +14,16 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from './config.js';
 
 // Types for auth functions
+export interface SuperAdminData {
+  email: string;
+  password: string;
+}
+
+export interface SuperAdminRedirectResult {
+  requiresSuperAdminLogin: true;
+  message: string;
+}
+
 export interface SignUpData {
   email: string;
   password: string;
@@ -34,11 +44,6 @@ export interface UpdateUserData {
   displayName?: string;
   email?: string;
   photoURL?: string;
-}
-
-export interface SuperAdminData {
-  email: string;
-  password: string;
 }
 
 export interface UserProfileData {
@@ -96,7 +101,7 @@ export const signUp = async ({ email, password, fullName }: SignUpData): Promise
 };
 
 // Sign in with email and password
-export const signIn = async ({ email, password }: LoginData): Promise<{ user: User; userData: any }> => {
+export const signIn = async ({ email, password }: LoginData): Promise<{ user: User; userData: any } | SuperAdminRedirectResult> => {
   try {
     console.log('Attempting regular user login...', { email });
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -117,7 +122,12 @@ export const signIn = async ({ email, password }: LoginData): Promise<{ user: Us
     if (userData.userType !== 2) {
       // Sign out the user since they shouldn't be logging in here
       await signOut(auth);
-      throw new Error('Access denied: This account requires superadmin login. You will be redirected to the admin portal.');
+      
+      // Return redirect result instead of throwing error
+      return {
+        requiresSuperAdminLogin: true,
+        message: 'Access denied: This account requires superadmin login. You will be redirected to the admin portal.'
+      };
     }
     
     // Update last sign in

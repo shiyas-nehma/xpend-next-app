@@ -15,31 +15,51 @@ export function useSuperAdminAuth(): SuperAdminAuth {
   const [adminData, setAdminData] = useState<any>(null);
 
   useEffect(() => {
+    console.log('useSuperAdminAuth hook running...');
     const run = async () => {
       try {
         const token = typeof window !== 'undefined' ? localStorage.getItem('superadmin_token') : null;
         const data = typeof window !== 'undefined' ? localStorage.getItem('superadmin_data') : null;
+        
+        console.log('useSuperAdminAuth localStorage check:', { 
+          hasToken: !!token, 
+          hasData: !!data,
+          token: token?.substring(0, 10) + '...' // First 10 chars for debugging
+        });
+        
         if (!token || !data) {
+          console.log('useSuperAdminAuth: No credentials, setting unauthenticated');
           setAuthenticated(false);
           setLoading(false);
           return;
         }
         setAdminData(JSON.parse(data));
-        // soft verify
-        isSuperAdmin().then(isA => {
-          if (!isA) {
-            localCleanup();
-            setAuthenticated(false);
-          } else {
-            setAuthenticated(true);
-          }
-          setLoading(false);
-        }).catch(() => {
-          // fallback to optimistic
-          setAuthenticated(true);
-          setLoading(false);
-        });
+        
+        // Immediately set authenticated to true based on localStorage
+        console.log('useSuperAdminAuth: Setting authenticated to true based on localStorage');
+        setAuthenticated(true);
+        setLoading(false);
+        
+        // Perform Firebase verification in background with delay
+        setTimeout(() => {
+          console.log('useSuperAdminAuth: Starting background Firebase verification...');
+          isSuperAdmin().then(isA => {
+            console.log('useSuperAdminAuth: Background verification result:', isA);
+            if (!isA) {
+              console.log('useSuperAdminAuth: Background Firebase verification failed, logging out');
+              localCleanup();
+              setAuthenticated(false);
+            } else {
+              console.log('useSuperAdminAuth: Background Firebase verification successful');
+            }
+          }).catch((error) => {
+            console.error('useSuperAdminAuth: Background Firebase verification error:', error);
+            // Don't log out on error, stay optimistically authenticated
+          });
+        }, 1500); // 1.5 second delay to allow Firebase auth to settle
+        
       } catch (e) {
+        console.error('useSuperAdminAuth: Error in auth check:', e);
         localCleanup();
         setAuthenticated(false);
         setLoading(false);

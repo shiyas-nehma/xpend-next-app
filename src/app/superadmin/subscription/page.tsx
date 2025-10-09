@@ -8,6 +8,18 @@ import { useCurrency } from '@/context/CurrencyContext';
 // Types
 import { SubscriptionPlanService, Plan, FeatureLimits, defaultFeatureLimits } from '@/lib/firebase/subscriptionService';
 
+// Helper function to safely parse integers
+const safeParseInt = (value: string, fallback: number = 0): number => {
+  const parsed = parseInt(value);
+  return isNaN(parsed) ? fallback : parsed;
+};
+
+// Helper function to safely parse floats
+const safeParseFloat = (value: string, fallback: number = 0): number => {
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? fallback : parsed;
+};
+
 interface EditState {
   open: boolean;
   plan: Plan | null;
@@ -41,7 +53,9 @@ const Segmented: React.FC<{ options: string[]; value: string; onChange: (v: stri
 // Enhanced modal for plan create/edit with comprehensive features
 const PlanModal: React.FC<{ state: EditState; onClose: () => void; onSave: (plan: Partial<Plan>) => void; } > = ({ state, onClose, onSave }) => {
   const editing = !!state.plan;
-  const [form, setForm] = useState<Partial<Plan>>(() => state.plan ? { ...state.plan } : { 
+  
+  // Default form values for new plans
+  const getDefaultForm = (): Partial<Plan> => ({
     name: '', 
     monthlyPrice: 0, 
     annualDiscountPct: 20, 
@@ -67,6 +81,19 @@ const PlanModal: React.FC<{ state: EditState; onClose: () => void; onSave: (plan
     sortOrder: 0 
   });
 
+  const [form, setForm] = useState<Partial<Plan>>(() => state.plan ? { ...state.plan } : getDefaultForm());
+
+  // Reset form when state changes (for edit vs create scenarios)
+  useEffect(() => {
+    if (state.plan) {
+      // Editing mode - populate with existing plan data
+      setForm({ ...state.plan });
+    } else {
+      // Create mode - reset to default values
+      setForm(getDefaultForm());
+    }
+  }, [state.plan, state.open]);
+
   const update = (key: keyof Plan, value: any) => setForm(f => ({ ...f, [key]: value }));
   
   const updateFeatureLimit = (key: keyof FeatureLimits, value: any) => {
@@ -86,9 +113,13 @@ const PlanModal: React.FC<{ state: EditState; onClose: () => void; onSave: (plan
   const removeFeature = (i: number) => setForm(f => ({ ...f, features: (f.features || []).filter((_, idx) => idx !== i) }));
 
   const save = () => {
-    if (!form.name) return;
+    if (!form.name?.trim()) {
+      alert('Plan name is required');
+      return;
+    }
+    console.log('Saving plan:', form);
     onSave(form);
-    onClose();
+    // Don't close here - let the parent handle closing after async operation
   };
 
   return (
@@ -123,7 +154,7 @@ const PlanModal: React.FC<{ state: EditState; onClose: () => void; onSave: (plan
                 </div>
                 <div>
                   <label className="text-xs font-medium text-brand-text-secondary block mb-1">Sort Order</label>
-                  <input type="number" value={form.sortOrder ?? 0} onChange={e => update('sortOrder', parseInt(e.target.value))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                  <input type="number" value={form.sortOrder ?? 0} onChange={e => update('sortOrder', safeParseInt(e.target.value, 0))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
                 </div>
               </div>
             </div>
@@ -134,15 +165,15 @@ const PlanModal: React.FC<{ state: EditState; onClose: () => void; onSave: (plan
               <div className="grid md:grid-cols-4 gap-4">
                 <div>
                   <label className="text-xs font-medium text-brand-text-secondary block mb-1">Monthly Price ($)</label>
-                  <input type="number" step="0.01" value={form.monthlyPrice ?? 0} onChange={e => update('monthlyPrice', parseFloat(e.target.value))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                  <input type="number" step="0.01" value={form.monthlyPrice ?? 0} onChange={e => update('monthlyPrice', safeParseFloat(e.target.value, 0))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-brand-text-secondary block mb-1">Annual Discount (%)</label>
-                  <input type="number" value={form.annualDiscountPct ?? 0} onChange={e => update('annualDiscountPct', parseFloat(e.target.value))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                  <input type="number" value={form.annualDiscountPct ?? 0} onChange={e => update('annualDiscountPct', safeParseFloat(e.target.value, 0))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-brand-text-secondary block mb-1">Trial Days</label>
-                  <input type="number" value={form.trialDays ?? 0} onChange={e => update('trialDays', parseInt(e.target.value))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                  <input type="number" value={form.trialDays ?? 0} onChange={e => update('trialDays', safeParseInt(e.target.value, 0))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div className="flex items-center gap-2 pt-6">
                   <label className="inline-flex items-center gap-2 text-xs font-medium text-brand-text-secondary select-none">
@@ -154,7 +185,7 @@ const PlanModal: React.FC<{ state: EditState; onClose: () => void; onSave: (plan
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-medium text-brand-text-secondary block mb-1">Max Subscription Duration</label>
-                  <input type="number" value={form.maxDuration ?? 30} onChange={e => update('maxDuration', parseInt(e.target.value))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                  <input type="number" value={form.maxDuration ?? 30} onChange={e => update('maxDuration', safeParseInt(e.target.value, 30))} className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-brand-text-secondary block mb-1">Duration Type</label>
@@ -173,17 +204,17 @@ const PlanModal: React.FC<{ state: EditState; onClose: () => void; onSave: (plan
               <div className="grid md:grid-cols-3 gap-4">
                 <div>
                   <label className="text-xs font-medium text-brand-text-secondary block mb-1">Max Categories</label>
-                  <input type="number" value={form.featureLimits?.maxCategories ?? 10} onChange={e => updateFeatureLimit('maxCategories', parseInt(e.target.value))} placeholder="-1 for unlimited" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                  <input type="number" value={form.featureLimits?.maxCategories ?? 10} onChange={e => updateFeatureLimit('maxCategories', safeParseInt(e.target.value, 10))} placeholder="-1 for unlimited" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
                   <p className="text-xs text-brand-text-secondary mt-1">-1 for unlimited</p>
                 </div>
                 <div>
                   <label className="text-xs font-medium text-brand-text-secondary block mb-1">Max Income Entries</label>
-                  <input type="number" value={form.featureLimits?.maxIncomes ?? 50} onChange={e => updateFeatureLimit('maxIncomes', parseInt(e.target.value))} placeholder="-1 for unlimited" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                  <input type="number" value={form.featureLimits?.maxIncomes ?? 50} onChange={e => updateFeatureLimit('maxIncomes', safeParseInt(e.target.value, 50))} placeholder="-1 for unlimited" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
                   <p className="text-xs text-brand-text-secondary mt-1">Per month</p>
                 </div>
                 <div>
                   <label className="text-xs font-medium text-brand-text-secondary block mb-1">Max Expense Entries</label>
-                  <input type="number" value={form.featureLimits?.maxExpenses ?? 50} onChange={e => updateFeatureLimit('maxExpenses', parseInt(e.target.value))} placeholder="-1 for unlimited" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
+                  <input type="number" value={form.featureLimits?.maxExpenses ?? 50} onChange={e => updateFeatureLimit('maxExpenses', safeParseInt(e.target.value, 50))} placeholder="-1 for unlimited" className="w-full bg-brand-surface-2 border border-brand-border rounded-lg px-3 py-2 text-sm" />
                   <p className="text-xs text-brand-text-secondary mt-1">Per month</p>
                 </div>
                 
@@ -310,8 +341,12 @@ const SubscriptionPage: React.FC = () => {
   const handleSavePlan = async (partial: Partial<Plan>) => {
     try {
       if (partial.id) {
+        // Editing existing plan
+        console.log('Updating existing plan:', partial.id);
         await SubscriptionPlanService.updatePlan(partial.id, partial);
       } else {
+        // Creating new plan
+        console.log('Creating new plan:', partial.name);
         const maxSort = plans.reduce((m,p) => Math.max(m, p.sortOrder || 0), 0);
         await SubscriptionPlanService.createPlan({
           name: partial.name || 'New Plan',
@@ -320,7 +355,7 @@ const SubscriptionPage: React.FC = () => {
           features: partial.features || [],
           featureLimits: partial.featureLimits || defaultFeatureLimits,
           status: (partial.status as any) || 'draft',
-            subscribers: 0,
+          subscribers: 0,
           trialDays: partial.trialDays ?? 0,
           maxDuration: partial.maxDuration ?? 30,
           durationType: partial.durationType || 'days',
@@ -328,6 +363,10 @@ const SubscriptionPage: React.FC = () => {
           sortOrder: (partial.sortOrder !== undefined ? partial.sortOrder : maxSort + 1)
         });
       }
+      
+      // Close the modal after successful save
+      setEditState({ open: false, plan: null });
+      console.log('Plan saved successfully');
     } catch (e) {
       console.error('Failed to save plan', e);
       alert('Failed to save plan. Check console for details.');

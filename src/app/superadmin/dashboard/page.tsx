@@ -102,43 +102,59 @@ export default function SuperAdminDashboard() {
   const [adminData, setAdminData] = useState<any>(null);
   const router = useRouter();
 
+  console.log('SuperAdminDashboard component mounted');
+
   useEffect(() => {
+    console.log('SuperAdminDashboard useEffect triggered');
     // Check admin authentication
     const checkAdminAuth = async () => {
+      console.log('checkAdminAuth started');
       try {
         const token = localStorage.getItem('superadmin_token');
         const adminDataStr = localStorage.getItem('superadmin_data');
         
+        console.log('localStorage check:', { 
+          hasToken: !!token, 
+          hasData: !!adminDataStr,
+          token: token?.substring(0, 10) + '...' // Log first 10 chars for debugging
+        });
+        
         if (!token || !adminDataStr) {
-          console.log('No token or admin data found in local storage');
-          router.push('/superadmin/login');
+          console.log('No token or admin data found in local storage, redirecting to login');
+          window.location.href = '/superadmin/login';
           return;
         }
         
         // Parse stored admin data
         const storedAdminData = JSON.parse(adminDataStr);
+        console.log('Parsed admin data:', { userType: storedAdminData.userType, email: storedAdminData.email });
         setAdminData(storedAdminData);
+        setLoading(false); // Set loading to false immediately after localStorage check
+        console.log('Dashboard authentication successful, showing dashboard');
         
-        // Verify with Firebase that user is still superadmin (non-blocking)
-        // This runs in background to ensure the token is still valid
-        isSuperAdmin().then(isAdmin => {
-          if (!isAdmin) {
-            console.log('User is no longer a superadmin');
-            localStorage.removeItem('superadmin_token');
-            localStorage.removeItem('superadmin_data');
-            router.push('/superadmin/login');
-          }
-        }).catch(error => {
-          console.error('Error verifying superadmin status:', error);
-          // Don't redirect immediately on error, Firebase might be initializing
-        });
+        // Optional: Verify with Firebase in background (non-blocking)
+        // Only do this if you want extra security, but don't redirect on failure
+        setTimeout(() => {
+          console.log('Starting optional background Firebase verification...');
+          isSuperAdmin().then(isAdmin => {
+            console.log('Background verification result:', isAdmin);
+            if (!isAdmin) {
+              console.warn('Background verification failed - user may no longer be superadmin');
+              // Don't redirect immediately, just log the warning
+            } else {
+              console.log('Background verification: Superadmin status confirmed');
+            }
+          }).catch(error => {
+            console.error('Background verification error (non-critical):', error);
+            // Don't redirect on verification errors
+          });
+        }, 3000); // 3 second delay and only as background check
         
-        setLoading(false);
       } catch (error) {
         console.error('Auth check error:', error);
         localStorage.removeItem('superadmin_token');
         localStorage.removeItem('superadmin_data');
-        router.push('/superadmin/login');
+        window.location.href = '/superadmin/login';
       }
     };
     

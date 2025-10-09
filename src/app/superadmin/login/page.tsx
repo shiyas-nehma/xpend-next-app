@@ -50,7 +50,15 @@ export default function SuperAdminLoginPage() {
       localStorage.setItem('superadmin_data', JSON.stringify(userData));
       
       addToast('Successfully logged in as Super Admin', 'success');
-      router.push('/superadmin/dashboard');
+      console.log('Superadmin login successful, redirecting to dashboard...', { uid: user.uid });
+      console.log('localStorage set:', {
+        token: localStorage.getItem('superadmin_token'),
+        data: localStorage.getItem('superadmin_data')
+      });
+      
+      // Use window.location.href for more reliable redirect
+      console.log('Redirecting using window.location.href...');
+      window.location.href = '/superadmin/dashboard';
     } catch (error: any) {
       console.error('Superadmin login error:', error);
       
@@ -73,7 +81,15 @@ export default function SuperAdminLoginPage() {
           localStorage.setItem('superadmin_data', JSON.stringify(userData));
           
           addToast('Superadmin account created and logged in successfully!', 'success');
-          router.push('/superadmin/dashboard');
+          console.log('Superadmin created and logged in, redirecting to dashboard...', { uid: user.uid });
+          console.log('localStorage set after creation:', {
+            token: localStorage.getItem('superadmin_token'),
+            data: localStorage.getItem('superadmin_data')
+          });
+          
+          // Use window.location.href for more reliable redirect
+          console.log('Redirecting using window.location.href after creation...');
+          window.location.href = '/superadmin/dashboard';
         } catch (createError: any) {
           console.error('Failed to create superadmin:', createError);
           setError('Failed to create or authenticate superadmin account');

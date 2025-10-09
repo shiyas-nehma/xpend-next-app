@@ -16,11 +16,22 @@ const SuperAdminLayout: React.FC<SuperAdminLayoutProps> = ({ children }) => {
   const publicPages = ['/superadmin/login', '/superadmin/logout'];
   const protectedRoute = !publicPages.includes(pathname);
 
+  console.log('SuperAdminLayout render:', { 
+    pathname, 
+    loading, 
+    authenticated, 
+    protectedRoute,
+    publicPages 
+  });
+
   useEffect(() => {
+    console.log('SuperAdminLayout useEffect:', { loading, protectedRoute, authenticated });
     if (!loading && protectedRoute && !authenticated) {
-      router.push('/superadmin/login');
+      console.log('SuperAdminLayout: Redirecting to login due to unauthenticated access');
+      // Use window.location for more reliable redirect
+      window.location.href = '/superadmin/login';
     }
-  }, [loading, protectedRoute, authenticated, router]);
+  }, [loading, protectedRoute, authenticated]);
 
   if (!protectedRoute) {
     return <div className="min-h-screen bg-brand-bg text-brand-text-primary">{children}</div>;

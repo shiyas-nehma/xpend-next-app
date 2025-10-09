@@ -47,32 +47,36 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const { user, userData } = await signIn(formData);
+      const result = await signIn(formData);
+      
+      // Check if this is a superadmin redirect case
+      if ('requiresSuperAdminLogin' in result) {
+        addToast(result.message, 'error');
+        // Redirect to superadmin login after a short delay
+        setTimeout(() => {
+          router.push('/superadmin/login');
+        }, 2000);
+        return;
+      }
+      
+      // Normal login success
       addToast('Welcome back!', 'success');
       router.push('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login error:', error); // Debug log
       
       let errorMessage = 'Login failed. Please try again.';
       
       // Handle Firebase auth errors
-      if (error.code) {
-        errorMessage = getAuthErrorMessage(error.code);
-      } else if (error.message) {
+      if (error && typeof error === 'object' && 'code' in error) {
+        errorMessage = getAuthErrorMessage(error.code as string);
+      } else if (error && typeof error === 'object' && 'message' in error) {
         // Handle custom errors from our auth functions
-        errorMessage = error.message;
+        errorMessage = error.message as string;
       }
       
       setError(errorMessage);
       addToast(errorMessage, 'error');
-      
-      // Special handling for access denied cases - redirect to superadmin login
-      if (error.message && error.message.includes('Access denied')) {
-        addToast('Redirecting to admin portal...', 'info');
-        setTimeout(() => {
-          router.push('/superadmin/login');
-        }, 1500); // Reduced delay for faster redirect
-      }
     } finally {
       setLoading(false);
     }
@@ -83,27 +87,28 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const { user, userData } = await signInWithGoogle();
+      await signInWithGoogle();
       addToast('Welcome back!', 'success');
       router.push('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Google login error:', error); // Debug log
       
       let errorMessage = 'Google sign-in failed. Please try again.';
       
       // Handle Firebase auth errors
-      if (error.code) {
-        errorMessage = getAuthErrorMessage(error.code);
-      } else if (error.message) {
+      if (error && typeof error === 'object' && 'code' in error) {
+        errorMessage = getAuthErrorMessage(error.code as string);
+      } else if (error && typeof error === 'object' && 'message' in error) {
         // Handle custom errors from our auth functions
-        errorMessage = error.message;
+        errorMessage = error.message as string;
       }
       
       setError(errorMessage);
       addToast(errorMessage, 'error');
       
       // Special handling for access denied cases - redirect to superadmin login
-      if (error.message && error.message.includes('Access denied')) {
+      if (error && typeof error === 'object' && 'message' in error && 
+          typeof error.message === 'string' && error.message.includes('Access denied')) {
         addToast('Redirecting to admin portal...', 'info');
         setTimeout(() => {
           router.push('/superadmin/login');
