@@ -80,61 +80,83 @@ export async function POST(request: NextRequest) {
       plan = await AdminSubscriptionPlanService.getPlanById(planId);
       console.log('Plan fetch result:', plan ? 'Found' : 'Not found');
       
-      // If plan not found, and we're in development, create a test plan
-      if (!plan && (planId === '1' || planId === '2')) {
-        console.log(`Creating test plan for development (planId: ${planId})...`);
-        try {
-          const testPlanData = planId === '1' ? {
-            name: 'Free Test Plan',
-            monthlyPrice: 0,
-            annualDiscountPct: 0,
-            features: ['Test feature', 'Basic support'],
-            featureLimits: {
-              maxCategories: 3,
-              maxIncomes: 5,
-              maxExpenses: 5,
-              maxAccounts: 1,
-              maxBudgets: 1,
-              analyticsAccess: false,
-              reportGeneration: false,
-              dataExport: false,
-              apiAccess: false,
-              prioritySupport: false,
-              customIntegrations: false,
-            },
-            status: 'active' as const,
-            subscribers: 0,
-            trialDays: 0,
-            maxDuration: 365,
-            durationType: 'days' as const,
-            sortOrder: 0,
-          } : {
-            name: 'Pro Test Plan',
-            monthlyPrice: 9.99,
-            annualDiscountPct: 20,
-            features: ['All free features', 'Unlimited transactions', 'Advanced analytics', 'Priority support'],
-            featureLimits: {
-              maxCategories: 999,
-              maxIncomes: 999,
-              maxExpenses: 999,
-              maxAccounts: 10,
-              maxBudgets: 20,
-              analyticsAccess: true,
-              reportGeneration: true,
-              dataExport: true,
-              apiAccess: true,
-              prioritySupport: true,
-              customIntegrations: false,
-            },
-            status: 'active' as const,
-            subscribers: 0,
-            trialDays: 7,
-            maxDuration: 365,
-            durationType: 'days' as const,
-            sortOrder: 1,
-          };
-
-          const testPlanId = await AdminSubscriptionPlanService.createPlan(testPlanData);
+        // If plan not found, and we're in development, create a test plan
+        if (!plan && (planId === '1' || planId === '2' || planId === '3')) {
+          console.log(`Creating test plan for development (planId: ${planId})...`);
+          try {
+            const testPlanData = planId === '1' ? {
+              name: 'Free Test Plan',
+              monthlyPrice: 0,
+              annualDiscountPct: 0,
+              features: ['Test feature', 'Basic support'],
+              featureLimits: {
+                maxCategories: 3,
+                maxIncomes: 5,
+                maxExpenses: 5,
+                maxAccounts: 1,
+                maxBudgets: 1,
+                analyticsAccess: false,
+                reportGeneration: false,
+                dataExport: false,
+                apiAccess: false,
+                prioritySupport: false,
+                customIntegrations: false,
+              },
+              status: 'active' as const,
+              subscribers: 0,
+              trialDays: 0,
+              maxDuration: 365,
+              durationType: 'days' as const,
+              sortOrder: 0,
+            } : planId === '2' ? {
+              name: 'Pro Test Plan (With Trial)',
+              monthlyPrice: 9.99,
+              annualDiscountPct: 20,
+              features: ['All free features', 'Unlimited transactions', 'Advanced analytics', 'Priority support'],
+              featureLimits: {
+                maxCategories: 999,
+                maxIncomes: 999,
+                maxExpenses: 999,
+                maxAccounts: 10,
+                maxBudgets: 20,
+                analyticsAccess: true,
+                reportGeneration: true,
+                dataExport: true,
+                apiAccess: true,
+                prioritySupport: true,
+                customIntegrations: false,
+              },
+              status: 'active' as const,
+              subscribers: 0,
+              trialDays: 7,
+              maxDuration: 365,
+              durationType: 'days' as const,
+              sortOrder: 1,
+            } : {
+              name: 'Premium Test Plan (Immediate Payment)',
+              monthlyPrice: 19.99,
+              annualDiscountPct: 25,
+              features: ['All pro features', 'Premium analytics', 'API access', 'Priority support', 'Custom integrations'],
+              featureLimits: {
+                maxCategories: 999,
+                maxIncomes: 999,
+                maxExpenses: 999,
+                maxAccounts: 999,
+                maxBudgets: 999,
+                analyticsAccess: true,
+                reportGeneration: true,
+                dataExport: true,
+                apiAccess: true,
+                prioritySupport: true,
+                customIntegrations: true,
+              },
+              status: 'active' as const,
+              subscribers: 0,
+              trialDays: 0, // Immediate payment required
+              maxDuration: 365,
+              durationType: 'days' as const,
+              sortOrder: 2,
+            };          const testPlanId = await AdminSubscriptionPlanService.createPlan(testPlanData);
           
           console.log('Test plan created with ID:', testPlanId);
           // Fetch the newly created plan

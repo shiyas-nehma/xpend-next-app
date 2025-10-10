@@ -14,12 +14,17 @@ if (!webhookSecret) {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('🚀 Webhook received at:', new Date().toISOString());
+  
   try {
     const body = await request.text();
     const headersList = headers();
     const signature = headersList.get('stripe-signature');
 
+    console.log('📝 Webhook signature present:', !!signature);
+
     if (!signature) {
+      console.log('❌ Missing stripe signature');
       return NextResponse.json({ error: 'Missing stripe signature' }, { status: 400 });
     }
 
@@ -27,12 +32,15 @@ export async function POST(request: NextRequest) {
 
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      console.log('✅ Webhook signature verified successfully');
     } catch (err) {
-      console.error('Webhook signature verification failed:', err);
+      console.error('❌ Webhook signature verification failed:', err);
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 
-    console.log(`Received webhook event: ${event.type}`);
+    console.log(`📨 Received webhook event: ${event.type} at ${new Date().toISOString()}`);
+    console.log('📋 Event ID:', event.id);
+    console.log('📋 Event data keys:', Object.keys(event.data.object));
 
     // Handle the event
     switch (event.type) {
@@ -94,14 +102,48 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     console.log('Customer ID:', session.customer);
     console.log('Subscription ID:', session.subscription);
     console.log('Payment status:', session.payment_status);
+    console.log('Session metadata:', session.metadata);
     
     if (session.mode === 'subscription' && session.subscription && session.payment_status === 'paid') {
       console.log('Processing successful subscription checkout');
       
-      // The subscription creation will be handled by the subscription.created webhook
-      // But we can log this for tracking
+      // For immediate payments (trialDays: 0), we need to update payment status here
+      // because this is when the payment actually completes
+      if (session.metadata?.firebaseSubscriptionId) {
+        console.log('Found Firebase subscription ID in metadata:', session.metadata.firebaseSubscriptionId);
+        
+        try {
+          // Find and update the pending payment record
+          const existingPayment = await PaymentDetailsService.findPendingPaymentForSubscription(
+            session.metadata.firebaseSubscriptionId
+          );
+          
+          if (existingPayment) {
+            console.log('Found pending payment record, updating to completed:', existingPayment.id);
+            
+            // Get payment details from session
+            const paymentIntentId = session.payment_intent as string;
+            
+            await PaymentDetailsService.markPaymentCompleted(
+              existingPayment.id,
+              paymentIntentId,
+              undefined, // stripeChargeId - might be available in payment intent
+              undefined, // stripeInvoiceId - will be set later from invoice webhook
+              undefined  // cardDetails - could extract from payment method if needed
+            );
+            
+            console.log('✅ Payment status updated to completed via checkout session');
+          } else {
+            console.log('No pending payment record found for subscription:', session.metadata.firebaseSubscriptionId);
+          }
+        } catch (paymentError) {
+          console.error('❌ Error updating payment record from checkout session:', paymentError);
+        }
+      } else {
+        console.log('No Firebase subscription ID found in session metadata');
+      }
+      
       console.log('✅ Subscription checkout completed successfully');
-      console.log('Subscription will be processed in subscription.created webhook');
     }
   } catch (error) {
     console.error('❌ Error handling checkout session completed:', error);
@@ -157,35 +199,52 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
       const updatedSubscription = await FirebaseUserSubscriptionService.getSubscriptionById(firebaseSubscription.id);
       
       if (updatedSubscription && ['active', 'trialing'].includes(updatedSubscription.status)) {
-        // 2. Create payment record
+        // 2. Handle payment record based on plan type
         try {
-          const amount = subscription.items.data[0]?.price?.unit_amount || 0;
-          const currency = subscription.items.data[0]?.price?.currency || 'usd';
+          const existingPayment = await PaymentDetailsService.findPendingPaymentForSubscription(updatedSubscription.id);
           
-          const paymentRecord = await PaymentDetailsService.createPayment({
-            userId: updatedSubscription.userId,
-            subscriptionId: updatedSubscription.id,
-            paymentAmount: amount / 100, // Convert from cents
-            currency,
-            modeOfPayment: 'card',
-            paymentStatus: 'completed',
-            stripePaymentIntentId: subscription.latest_invoice as string,
-            userDetails: updatedSubscription.userDetails,
-            subscriptionDetails: {
+          if (existingPayment) {
+            // Update existing payment record (for trial plans that had pending payment)
+            console.log('Found existing pending payment record, updating to completed:', existingPayment.id);
+            await PaymentDetailsService.markPaymentCompleted(
+              existingPayment.id,
+              subscription.latest_invoice as string,
+              undefined, // stripeChargeId - will be set from invoice webhook
+              undefined, // stripeInvoiceId - will be set from invoice webhook
+              undefined  // cardDetails - will be set from invoice webhook
+            );
+            console.log('✅ 2. Updated existing payment record to completed');
+          } else {
+            // Create new payment record for immediate payment plans (trialDays: 0) or legacy handling
+            console.log('No existing payment record found, creating completed payment record');
+            const amount = subscription.items.data[0]?.price?.unit_amount || 0;
+            const currency = subscription.items.data[0]?.price?.currency || 'usd';
+            
+            const paymentRecord = await PaymentDetailsService.createPayment({
+              userId: updatedSubscription.userId,
+              subscriptionId: updatedSubscription.id,
+              paymentAmount: amount / 100, // Convert from cents
+              currency,
+              modeOfPayment: 'card',
+              paymentStatus: 'completed', // Direct payment is completed by the time webhook fires
+              stripePaymentIntentId: subscription.latest_invoice as string,
+              userDetails: updatedSubscription.userDetails,
+              subscriptionDetails: {
+                planName: updatedSubscription.planName,
+                billingCycle: updatedSubscription.billingCycle,
+                startDate: updatedSubscription.startDate,
+                endDate: updatedSubscription.endDate,
+                status: updatedSubscription.status,
+              },
               planName: updatedSubscription.planName,
               billingCycle: updatedSubscription.billingCycle,
-              startDate: updatedSubscription.startDate,
-              endDate: updatedSubscription.endDate,
-              status: updatedSubscription.status,
-            },
-            planName: updatedSubscription.planName,
-            billingCycle: updatedSubscription.billingCycle,
-            description: `Initial payment for ${updatedSubscription.planName} subscription`,
-          });
-          
-          console.log('✅ 2. Created payment record:', paymentRecord.id);
+              description: `Payment for ${updatedSubscription.planName} subscription (immediate payment)`,
+            });
+            
+            console.log('✅ 2. Created completed payment record for immediate payment:', paymentRecord.id);
+          }
         } catch (paymentError) {
-          console.error('❌ Error creating payment record:', paymentError);
+          console.error('❌ Error handling payment record:', paymentError);
         }
       }
       
@@ -322,32 +381,48 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
         console.log('Stripe subscription status:', stripeSubscription.status);
         console.log('Is currently in trial:', isInTrialPeriod);
         
-        // 1. Create comprehensive payment record in payment_details
+        // 1. Handle payment record - update existing or create new
         try {
-          const paymentRecord = await PaymentDetailsService.createPayment({
-            userId: firebaseSubscription.userId,
-            subscriptionId: firebaseSubscription.id,
-            paymentAmount: invoice.amount_paid / 100, // Convert from cents
-            currency: invoice.currency,
-            modeOfPayment: 'card',
-            paymentStatus: invoice.status === 'paid' ? 'completed' : 'failed',
-            stripePaymentIntentId: invoice.payment_intent as string,
-            stripeChargeId: invoice.charge as string,
-            stripeInvoiceId: invoice.id,
-            userDetails: firebaseSubscription.userDetails,
-            subscriptionDetails: {
+          const existingPayment = await PaymentDetailsService.findPendingPaymentForSubscription(firebaseSubscription.id);
+          
+          if (existingPayment) {
+            // Update existing payment record
+            console.log('Found existing pending payment record, updating to completed:', existingPayment.id);
+            await PaymentDetailsService.markPaymentCompleted(
+              existingPayment.id,
+              invoice.payment_intent as string,
+              invoice.charge as string,
+              invoice.id
+            );
+            console.log('✅ Updated existing payment record to completed');
+          } else {
+            // Create new payment record for recurring payments or if none exists
+            console.log('No existing payment record found, creating new payment record');
+            const paymentRecord = await PaymentDetailsService.createPayment({
+              userId: firebaseSubscription.userId,
+              subscriptionId: firebaseSubscription.id,
+              paymentAmount: invoice.amount_paid / 100, // Convert from cents
+              currency: invoice.currency,
+              modeOfPayment: 'card',
+              paymentStatus: invoice.status === 'paid' ? 'completed' : 'failed',
+              stripePaymentIntentId: invoice.payment_intent as string,
+              stripeChargeId: invoice.charge as string,
+              stripeInvoiceId: invoice.id,
+              userDetails: firebaseSubscription.userDetails,
+              subscriptionDetails: {
+                planName: firebaseSubscription.planName,
+                billingCycle: firebaseSubscription.billingCycle,
+                startDate: firebaseSubscription.startDate,
+                endDate: firebaseSubscription.endDate,
+                status: firebaseSubscription.status,
+              },
               planName: firebaseSubscription.planName,
               billingCycle: firebaseSubscription.billingCycle,
-              startDate: firebaseSubscription.startDate,
-              endDate: firebaseSubscription.endDate,
-              status: firebaseSubscription.status,
-            },
-            planName: firebaseSubscription.planName,
-            billingCycle: firebaseSubscription.billingCycle,
-            description: `Payment for ${firebaseSubscription.planName} subscription`,
-          });
-          
-          console.log('✅ Created payment record:', paymentRecord.id);
+              description: `Payment for ${firebaseSubscription.planName} subscription`,
+            });
+            
+            console.log('✅ Created new payment record:', paymentRecord.id);
+          }
           console.log('Payment details stored with all required information');
         } catch (paymentError) {
           console.error('❌ Error creating payment record:', paymentError);
@@ -412,32 +487,46 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
       if (firebaseSubscription) {
         console.log('Found Firebase subscription:', firebaseSubscription.id);
         
-        // 1. Create payment record for failed payment
+        // 1. Handle failed payment record - update existing or create new
         try {
-          const paymentRecord = await PaymentDetailsService.createPayment({
-            userId: firebaseSubscription.userId,
-            subscriptionId: firebaseSubscription.id,
-            paymentAmount: invoice.amount_due / 100, // Convert from cents
-            currency: invoice.currency,
-            modeOfPayment: 'card',
-            paymentStatus: 'failed',
-            stripePaymentIntentId: invoice.payment_intent as string,
-            stripeChargeId: invoice.charge as string,
-            stripeInvoiceId: invoice.id,
-            userDetails: firebaseSubscription.userDetails,
-            subscriptionDetails: {
+          const existingPayment = await PaymentDetailsService.findPendingPaymentForSubscription(firebaseSubscription.id);
+          
+          if (existingPayment) {
+            // Update existing payment record to failed
+            console.log('Found existing pending payment record, marking as failed:', existingPayment.id);
+            await PaymentDetailsService.markPaymentFailed(
+              existingPayment.id,
+              `Payment failed for invoice ${invoice.id}`
+            );
+            console.log('✅ Updated existing payment record to failed');
+          } else {
+            // Create new failed payment record
+            console.log('No existing payment record found, creating failed payment record');
+            const paymentRecord = await PaymentDetailsService.createPayment({
+              userId: firebaseSubscription.userId,
+              subscriptionId: firebaseSubscription.id,
+              paymentAmount: invoice.amount_due / 100, // Convert from cents
+              currency: invoice.currency,
+              modeOfPayment: 'card',
+              paymentStatus: 'failed',
+              stripePaymentIntentId: invoice.payment_intent as string,
+              stripeChargeId: invoice.charge as string,
+              stripeInvoiceId: invoice.id,
+              userDetails: firebaseSubscription.userDetails,
+              subscriptionDetails: {
+                planName: firebaseSubscription.planName,
+                billingCycle: firebaseSubscription.billingCycle,
+                startDate: firebaseSubscription.startDate,
+                endDate: firebaseSubscription.endDate,
+                status: firebaseSubscription.status,
+              },
               planName: firebaseSubscription.planName,
               billingCycle: firebaseSubscription.billingCycle,
-              startDate: firebaseSubscription.startDate,
-              endDate: firebaseSubscription.endDate,
-              status: firebaseSubscription.status,
-            },
-            planName: firebaseSubscription.planName,
-            billingCycle: firebaseSubscription.billingCycle,
-            description: `Failed payment for ${firebaseSubscription.planName} subscription`,
-          });
-          
-          console.log('✅ Created failed payment record:', paymentRecord.id);
+              description: `Failed payment for ${firebaseSubscription.planName} subscription`,
+            });
+            
+            console.log('✅ Created failed payment record:', paymentRecord.id);
+          }
         } catch (paymentError) {
           console.error('❌ Error creating failed payment record:', paymentError);
         }

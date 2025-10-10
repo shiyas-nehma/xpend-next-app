@@ -344,11 +344,56 @@ class PaymentDetailsService {
     });
   }
 
+  // Find existing payment record for a subscription to update instead of creating duplicate
+  static async findPendingPaymentForSubscription(subscriptionId: string): Promise<PaymentRecord | null> {
+    try {
+      console.log('🔍 Searching for pending payment record for subscription:', subscriptionId);
+      
+      const q = query(
+        collection(db, COLLECTION_NAME),
+        where('subscriptionId', '==', subscriptionId),
+        where('paymentStatus', '==', 'pending'),
+        orderBy('createdAt', 'desc'),
+        limit(1)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      
+      console.log('📊 Query results:', {
+        subscriptionId,
+        foundRecords: querySnapshot.size,
+        isEmpty: querySnapshot.empty
+      });
+      
+      if (querySnapshot.empty) {
+        console.log('❌ No pending payment record found for subscription:', subscriptionId);
+        return null;
+      }
+      
+      const doc = querySnapshot.docs[0];
+      const paymentRecord = this.firestoreToPayment(doc.data(), doc.id);
+      
+      console.log('✅ Found pending payment record:', {
+        paymentId: paymentRecord.id,
+        subscriptionId: paymentRecord.subscriptionId,
+        status: paymentRecord.paymentStatus,
+        amount: paymentRecord.paymentAmount
+      });
+      
+      return paymentRecord;
+    } catch (error) {
+      console.error('❌ Error finding pending payment for subscription:', error);
+      console.error('Subscription ID searched:', subscriptionId);
+      return null;
+    }
+  }
+
   // Mark payment as completed
   static async markPaymentCompleted(
     paymentId: string, 
     stripePaymentIntentId?: string,
     stripeChargeId?: string,
+    stripeInvoiceId?: string,
     cardDetails?: PaymentRecord['cardDetails']
   ): Promise<void> {
     try {
@@ -356,6 +401,7 @@ class PaymentDetailsService {
         paymentStatus: 'completed',
         stripePaymentIntentId,
         stripeChargeId,
+        stripeInvoiceId,
         cardDetails,
         paymentDate: new Date(),
       });

@@ -136,15 +136,25 @@ class FirebaseUserSubscriptionService {
         new Date(now.getTime() + planDetails.trialDays * 24 * 60 * 60 * 1000) : 
         null;
       
+      // Calculate annual price with proper logic
+      const calculatedAnnualPrice = planDetails.annualDiscountPct && planDetails.annualDiscountPct > 0 ? 
+        planDetails.monthlyPrice * 12 * (1 - planDetails.annualDiscountPct / 100) : 
+        planDetails.monthlyPrice * 12;
+      
+      console.log('💰 Price Calculation Debug:', {
+        monthlyPrice: planDetails.monthlyPrice,
+        annualDiscountPct: planDetails.annualDiscountPct,
+        calculatedAnnualPrice,
+        trialDays: planDetails.trialDays
+      });
+      
       const subscription: UserSubscription = {
         id: subscriptionId,
         userId: subscriptionData.userId,
         planId: subscriptionData.planId,
         planName: planDetails.name,
         monthlyPrice: planDetails.monthlyPrice,
-        annualPrice: planDetails.annualDiscountPct ? 
-          planDetails.monthlyPrice * 12 * (1 - planDetails.annualDiscountPct / 100) : 
-          planDetails.monthlyPrice * 12,
+        annualPrice: calculatedAnnualPrice,
         userDetails: {
           ...subscriptionData.userDetails,
           userId: subscriptionData.userId,
@@ -175,52 +185,54 @@ class FirebaseUserSubscriptionService {
       await setDoc(doc(db, COLLECTION_NAME, subscriptionId), firestoreData);
       console.log('✅ 1. Created subscription in user_subscriptions table:', subscriptionId);
       
-      // 2. Create payment record in payment_details table
-      try {
-        const paymentAmount = planDetails.monthlyPrice || 0; // Free plans have 0 amount
-        
-        // Determine payment status based on plan type
-        let paymentStatus: 'pending' | 'completed' = 'pending';
-        let modeOfPayment: 'card' | 'bank' | 'other' | 'pending' = 'pending';
-        
-        if (paymentAmount === 0) {
-          // Free plans
-          paymentStatus = 'completed';
-          modeOfPayment = 'other';
-        } else if (planDetails.trialDays > 0) {
-          // Paid plans with trial - payment pending until trial ends
-          paymentStatus = 'pending';
-          modeOfPayment = 'pending';
-        } else {
-          // Paid plans with no trial - requires immediate Stripe payment
-          paymentStatus = 'pending';
-          modeOfPayment = 'card';
-        }
-        
-        const paymentRecord = await PaymentDetailsService.createPayment({
-          userId: subscription.userId,
-          subscriptionId: subscription.id,
-          paymentAmount,
-          currency: 'usd',
-          modeOfPayment,
-          paymentStatus,
-          userDetails: subscription.userDetails,
-          subscriptionDetails: {
+      // 2. Create payment record in payment_details table ONLY for paid plans
+      if (planDetails.monthlyPrice > 0) {
+        try {
+          const paymentAmount = planDetails.monthlyPrice;
+          
+          // Determine payment status based on plan type
+          let paymentStatus: 'pending' | 'completed' = 'pending';
+          let modeOfPayment: 'card' | 'bank' | 'other' | 'pending' = 'pending';
+          
+          if (planDetails.trialDays > 0) {
+            // Paid plans with trial - payment pending until trial ends
+            paymentStatus = 'pending';
+            modeOfPayment = 'pending';
+          } else {
+            // Paid plans with no trial - immediate payment required
+            // Payment starts as pending, will be updated to completed by webhook after successful Stripe payment
+            paymentStatus = 'pending';
+            modeOfPayment = 'card';
+          }
+          
+          const paymentRecord = await PaymentDetailsService.createPayment({
+            userId: subscription.userId,
+            subscriptionId: subscription.id,
+            paymentAmount,
+            currency: 'usd',
+            modeOfPayment,
+            paymentStatus,
+            userDetails: subscription.userDetails,
+            subscriptionDetails: {
+              planName: planDetails.name,
+              billingCycle: subscription.billingCycle,
+              startDate: subscription.startDate,
+              endDate: subscription.endDate,
+              status: subscription.status,
+            },
             planName: planDetails.name,
             billingCycle: subscription.billingCycle,
-            startDate: subscription.startDate,
-            endDate: subscription.endDate,
-            status: subscription.status,
-          },
-          planName: planDetails.name,
-          billingCycle: subscription.billingCycle,
-          description: `Subscription created: ${planDetails.name} (${planDetails.trialDays > 0 ? 'with trial' : planDetails.monthlyPrice === 0 ? 'free plan' : 'immediate payment required'})`,
-        });
-        console.log('✅ 2. Created payment record in payment_details table:', paymentRecord.id);
-        console.log(`   Payment status: ${paymentStatus}, Mode: ${modeOfPayment}, Amount: ${paymentAmount}`);
-      } catch (paymentError) {
-        console.error('❌ Error creating payment record:', paymentError);
-        // Don't fail the main subscription creation if payment record creation fails
+            description: `Subscription created: ${planDetails.name} (${planDetails.trialDays > 0 ? 'with trial - payment pending until trial ends' : 'immediate payment required'})`,
+          });
+          console.log('✅ 2. Created payment record in payment_details table:', paymentRecord.id);
+          console.log(`   Payment status: ${paymentStatus}, Mode: ${modeOfPayment}, Amount: ${paymentAmount}`);
+          console.log(`   Payment status: ${paymentStatus}, Mode: ${modeOfPayment}, Amount: ${paymentAmount}`);
+        } catch (paymentError) {
+          console.error('❌ Error creating payment record:', paymentError);
+          // Don't fail the main subscription creation if payment record creation fails
+        }
+      } else {
+        console.log('✅ 2. Skipped payment record creation for free plan (monthlyPrice: 0)');
       }
       
       console.log('🎉 Successfully created subscription:', {
