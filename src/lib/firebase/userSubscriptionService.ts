@@ -16,7 +16,6 @@ import {
 import { db } from './config';
 import { UserSubscription, SubscriptionCreateData, SubscriptionUpdateData } from '@/types/subscription';
 import { Plan } from './subscriptionService';
-import ActiveUserSubscriptionService from './activeUserSubscriptionService';
 import PaymentDetailsService from './paymentDetailsService';
 
 const COLLECTION_NAME = 'user_subscriptions';
@@ -88,14 +87,7 @@ class FirebaseUserSubscriptionService {
     try {
       console.log('Getting latest subscription for user:', userId);
       
-      // First try to get from active_user_subscriptions (most efficient)
-      const activeSubscription = await ActiveUserSubscriptionService.getActiveSubscription(userId);
-      if (activeSubscription) {
-        console.log('Found active subscription:', activeSubscription.id);
-        return activeSubscription;
-      }
-      
-      // Fallback: Query all user subscriptions and get the most recent one
+      // Query all user subscriptions and get the most recent one
       // Simplified query to avoid composite index requirement
       const q = query(
         collection(db, COLLECTION_NAME),
@@ -119,16 +111,6 @@ class FirebaseUserSubscriptionService {
       
       console.log('Found latest subscription from query (memory sorted):', latestSubscription.id);
       
-      // If this subscription is active but not in active_user_subscriptions, sync it
-      if (['active', 'trialing'].includes(latestSubscription.status)) {
-        try {
-          await ActiveUserSubscriptionService.setActiveSubscription(userId, latestSubscription);
-          console.log('Synced latest subscription to active_user_subscriptions');
-        } catch (syncError) {
-          console.warn('Could not sync to active_user_subscriptions:', syncError);
-        }
-      }
-      
       return latestSubscription;
     } catch (error) {
       console.error('Error getting user subscription:', error);
@@ -146,17 +128,6 @@ class FirebaseUserSubscriptionService {
       
       // First, ensure we clean up any existing active subscriptions for this user
       await this.ensureUserHasOnlyOneActiveSubscription(subscriptionData.userId);
-      
-      // Also deactivate any existing active subscription in the active_user_subscriptions table
-      try {
-        const existingActiveSubscription = await ActiveUserSubscriptionService.getActiveSubscription(subscriptionData.userId);
-        if (existingActiveSubscription) {
-          console.log('Found existing active subscription, will be replaced with new one');
-          // The new subscription will automatically replace it since we use userId as document ID
-        }
-      } catch (activeCheckError) {
-        console.warn('Could not check existing active subscription:', activeCheckError);
-      }
       
       const subscriptionId = doc(collection(db, COLLECTION_NAME)).id;
       
@@ -204,42 +175,55 @@ class FirebaseUserSubscriptionService {
       await setDoc(doc(db, COLLECTION_NAME, subscriptionId), firestoreData);
       console.log('✅ 1. Created subscription in user_subscriptions table:', subscriptionId);
       
-      // 2. Update active_user_subscriptions table (unique userId with latest subscription)
-      try {
-        if (['active', 'trialing'].includes(subscription.status)) {
-          await ActiveUserSubscriptionService.setActiveSubscription(subscription.userId, subscription);
-          console.log('✅ 2. Updated active_user_subscriptions table with LATEST subscription for userId:', subscription.userId);
-          console.log('   - New active subscription ID:', subscription.id);
-          console.log('   - Plan:', subscription.planName);
-          console.log('   - Status:', subscription.status);
-        }
-      } catch (activeError) {
-        console.error('❌ Error updating active subscription collection:', activeError);
-        // Don't fail the main subscription creation if active collection update fails
-      }
-      
-      // 3. Create payment record in payment_details table
+      // 2. Create payment record in payment_details table
       try {
         const paymentAmount = planDetails.monthlyPrice || 0; // Free plans have 0 amount
+        
+        // Determine payment status based on plan type
+        let paymentStatus: 'pending' | 'completed' = 'pending';
+        let modeOfPayment: 'card' | 'bank' | 'other' | 'pending' = 'pending';
+        
+        if (paymentAmount === 0) {
+          // Free plans
+          paymentStatus = 'completed';
+          modeOfPayment = 'other';
+        } else if (planDetails.trialDays > 0) {
+          // Paid plans with trial - payment pending until trial ends
+          paymentStatus = 'pending';
+          modeOfPayment = 'pending';
+        } else {
+          // Paid plans with no trial - requires immediate Stripe payment
+          paymentStatus = 'pending';
+          modeOfPayment = 'card';
+        }
+        
         const paymentRecord = await PaymentDetailsService.createPayment({
           userId: subscription.userId,
           subscriptionId: subscription.id,
           paymentAmount,
           currency: 'usd',
-          modeOfPayment: paymentAmount === 0 ? 'other' : 'pending', // 'pending' for paid plans until Stripe processes
-          paymentStatus: paymentAmount === 0 ? 'completed' : 'pending',
+          modeOfPayment,
+          paymentStatus,
           userDetails: subscription.userDetails,
+          subscriptionDetails: {
+            planName: planDetails.name,
+            billingCycle: subscription.billingCycle,
+            startDate: subscription.startDate,
+            endDate: subscription.endDate,
+            status: subscription.status,
+          },
           planName: planDetails.name,
           billingCycle: subscription.billingCycle,
-          description: `Subscription created: ${planDetails.name}`,
+          description: `Subscription created: ${planDetails.name} (${planDetails.trialDays > 0 ? 'with trial' : planDetails.monthlyPrice === 0 ? 'free plan' : 'immediate payment required'})`,
         });
-        console.log('✅ 3. Created payment record in payment_details table:', paymentRecord.id);
+        console.log('✅ 2. Created payment record in payment_details table:', paymentRecord.id);
+        console.log(`   Payment status: ${paymentStatus}, Mode: ${modeOfPayment}, Amount: ${paymentAmount}`);
       } catch (paymentError) {
         console.error('❌ Error creating payment record:', paymentError);
         // Don't fail the main subscription creation if payment record creation fails
       }
       
-      console.log('🎉 Successfully created subscription with all 3 tables updated:', {
+      console.log('🎉 Successfully created subscription:', {
         subscriptionId: subscription.id,
         userId: subscription.userId,
         planName: subscription.planName,
@@ -259,35 +243,203 @@ class FirebaseUserSubscriptionService {
     updateData: SubscriptionUpdateData
   ): Promise<void> {
     try {
+      console.log('Updating subscription:', subscriptionId);
+      console.log('Update data:', updateData);
+      
       const docRef = doc(db, COLLECTION_NAME, subscriptionId);
+      
+      // Get current subscription before update
+      const currentDoc = await getDoc(docRef);
+      if (!currentDoc.exists()) {
+        throw new Error(`Subscription ${subscriptionId} not found`);
+      }
+      
+      const currentSubscription = this.firestoreToSubscription(currentDoc.data(), currentDoc.id);
+      const previousStatus = currentSubscription.status;
+      
       const firestoreData = this.subscriptionToFirestore(updateData);
       
       // 1. Update main subscription record
       await updateDoc(docRef, firestoreData);
       console.log('✅ Updated subscription in user_subscriptions table:', subscriptionId);
       
-      // 2. Update active subscription table based on status change
-      try {
-        const updatedDoc = await getDoc(docRef);
-        if (updatedDoc.exists()) {
-          const updatedSubscription = this.firestoreToSubscription(updatedDoc.data(), updatedDoc.id);
+      // 2. Get the updated subscription to process changes
+      const updatedDoc = await getDoc(docRef);
+      if (updatedDoc.exists()) {
+        const updatedSubscription = this.firestoreToSubscription(updatedDoc.data(), updatedDoc.id);
+        const newStatus = updatedSubscription.status;
+        
+        console.log('Status change:', { previousStatus, newStatus });
+        
+        // 3. Create payment record for significant status changes
+        try {
+          const shouldCreatePaymentRecord = this.shouldCreatePaymentRecordForUpdate(
+            previousStatus, 
+            newStatus, 
+            updateData
+          );
           
-          // Update active subscription collection based on status
-          if (['active', 'trialing'].includes(updatedSubscription.status)) {
-            await ActiveUserSubscriptionService.setActiveSubscription(updatedSubscription.userId, updatedSubscription);
-            console.log('✅ Updated active subscription collection for user:', updatedSubscription.userId);
-          } else if (['cancelled', 'expired'].includes(updatedSubscription.status)) {
-            await ActiveUserSubscriptionService.removeActiveSubscription(updatedSubscription.userId);
-            console.log('✅ Removed active subscription for user:', updatedSubscription.userId);
+          if (shouldCreatePaymentRecord) {
+            console.log('Creating payment record for subscription update...');
+            
+            // Determine payment amount and status
+            const paymentAmount = this.getPaymentAmountForUpdate(updateData, updatedSubscription);
+            const paymentStatus = this.getPaymentStatusForUpdate(previousStatus, newStatus);
+            
+            const paymentRecord = await PaymentDetailsService.createPayment({
+              userId: updatedSubscription.userId,
+              subscriptionId: updatedSubscription.id,
+              paymentAmount,
+              currency: 'usd',
+              modeOfPayment: paymentAmount === 0 ? 'other' : 'card',
+              paymentStatus,
+              userDetails: updatedSubscription.userDetails,
+              subscriptionDetails: {
+                planName: updatedSubscription.planName,
+                billingCycle: updatedSubscription.billingCycle,
+                startDate: updatedSubscription.startDate,
+                endDate: updatedSubscription.endDate,
+                status: updatedSubscription.status,
+              },
+              planName: updatedSubscription.planName,
+              billingCycle: updatedSubscription.billingCycle,
+              description: `Subscription update: ${previousStatus} → ${newStatus}`,
+            });
+            
+            console.log('✅ Created payment record for subscription update:', paymentRecord.id);
           }
+        } catch (paymentError) {
+          console.error('❌ Error creating payment record for update:', paymentError);
+          // Don't fail the main update if payment record creation fails
         }
-      } catch (activeError) {
-        console.error('❌ Error updating active subscription collection:', activeError);
-        // Don't fail the main update if active collection update fails
       }
       
     } catch (error) {
       console.error('Error updating subscription:', error);
+      throw error;
+    }
+  }
+
+  // Helper method to determine if payment record should be created for an update
+  private static shouldCreatePaymentRecordForUpdate(
+    previousStatus: string, 
+    newStatus: string, 
+    updateData: SubscriptionUpdateData
+  ): boolean {
+    // Create payment record for these scenarios:
+    
+    // 1. Trial to active (trial period ended with successful payment)
+    if (previousStatus === 'trialing' && newStatus === 'active') {
+      return true;
+    }
+    
+    // 2. Any status change to active (reactivation)
+    if (newStatus === 'active' && previousStatus !== 'active') {
+      return true;
+    }
+    
+    // 3. Plan changes (if planName or monthlyPrice in updateData)
+    if (updateData.planName || updateData.monthlyPrice) {
+      return true;
+    }
+    
+    // 4. Billing cycle changes
+    if (updateData.billingCycle) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  // Helper method to determine payment amount for an update
+  private static getPaymentAmountForUpdate(
+    updateData: SubscriptionUpdateData, 
+    subscription: UserSubscription
+  ): number {
+    // If monthlyPrice is in updateData, use it
+    if (updateData.monthlyPrice !== undefined) {
+      return updateData.monthlyPrice;
+    }
+    
+    // Otherwise use the subscription's current price
+    return subscription.monthlyPrice || 0;
+  }
+
+  // Helper method to determine payment status for an update
+  private static getPaymentStatusForUpdate(
+    previousStatus: string, 
+    newStatus: string
+  ): 'pending' | 'completed' | 'failed' | 'cancelled' {
+    // Trial to active indicates successful payment
+    if (previousStatus === 'trialing' && newStatus === 'active') {
+      return 'completed';
+    }
+    
+    // Reactivation indicates successful payment
+    if (newStatus === 'active' && previousStatus !== 'active') {
+      return 'completed';
+    }
+    
+    // Status change to past_due indicates failed payment
+    if (newStatus === 'past_due') {
+      return 'failed';
+    }
+    
+    // Status change to cancelled
+    if (newStatus === 'cancelled') {
+      return 'cancelled';
+    }
+    
+    // Default to completed for other active transitions
+    return newStatus === 'active' ? 'completed' : 'pending';
+  }
+
+  // Method to handle subscription plan changes (especially for free plan changes)
+  static async changeSubscriptionPlan(
+    userId: string,
+    newPlanId: string,
+    newPlanDetails: Plan,
+    billingCycle: 'monthly' | 'annual' = 'monthly'
+  ): Promise<UserSubscription> {
+    try {
+      console.log('Changing subscription plan for user:', userId);
+      console.log('New plan:', newPlanDetails.name);
+      
+      // Get current subscription
+      const currentSubscription = await this.getUserSubscription(userId);
+      
+      if (currentSubscription) {
+        // Cancel current subscription
+        await this.updateSubscription(currentSubscription.id, {
+          status: 'cancelled',
+          cancelledAt: new Date(),
+          endDate: new Date(),
+        });
+        console.log('✅ Cancelled previous subscription:', currentSubscription.id);
+      }
+      
+      // Create new subscription with the new plan
+      const userDetails = currentSubscription?.userDetails || {
+        email: '',
+        firstName: '',
+        lastName: '',
+        userId,
+      };
+      
+      const newSubscription = await this.createSubscription(
+        {
+          userId,
+          planId: newPlanId,
+          userDetails,
+          billingCycle,
+        },
+        newPlanDetails
+      );
+      
+      console.log('✅ Created new subscription with plan change:', newSubscription.id);
+      return newSubscription;
+    } catch (error) {
+      console.error('Error changing subscription plan:', error);
       throw error;
     }
   }
@@ -484,19 +636,6 @@ class FirebaseUserSubscriptionService {
           cancellationReason: 'Duplicate subscription cleanup - newer subscription created',
           cancelledAt: new Date(),
         });
-      }
-      
-      // Update active_user_subscriptions table with the latest subscription
-      if (keepSubscription && ['active', 'trialing'].includes(keepSubscription.status)) {
-        try {
-          const latestSubscription = await this.getSubscriptionById(keepSubscription.id);
-          if (latestSubscription) {
-            await ActiveUserSubscriptionService.setActiveSubscription(userId, latestSubscription);
-            console.log(`Updated active_user_subscriptions table with latest subscription: ${keepSubscription.id}`);
-          }
-        } catch (activeUpdateError) {
-          console.error('Error updating active subscription table during cleanup:', activeUpdateError);
-        }
       }
       
       console.log(`Cleanup completed for user ${userId}`);

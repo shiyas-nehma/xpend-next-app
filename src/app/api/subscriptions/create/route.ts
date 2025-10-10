@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
       status: plan.status
     });
 
-    // Check if price is 0 (free plan)
+    // Check plan type and trial configuration
     if (plan.monthlyPrice === 0) {
       console.log('Creating free plan subscription...');
       // Handle free plan - no Stripe integration needed
@@ -197,7 +197,86 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    console.log('Creating paid plan subscription...');
+    // Check if this is a paid plan with no trial (immediate payment required)
+    if (plan.monthlyPrice > 0 && plan.trialDays === 0) {
+      console.log('Creating immediate paid plan subscription (no trial)...');
+      
+      // For paid plans with no trial, we need Stripe checkout for immediate payment
+      // But first, let's create the Firebase subscription record
+      const firebaseSubscription = await FirebaseUserSubscriptionService.createSubscription(
+        {
+          userId,
+          planId,
+          userDetails,
+          billingCycle,
+        },
+        plan
+      );
+      
+      console.log('Firebase subscription created for immediate paid plan:', firebaseSubscription.id);
+
+      // Now create Stripe checkout for immediate payment
+      // 1. Create or get Stripe customer
+      const stripeCustomer = await StripeCustomerService.getOrCreateCustomer({
+        email: userDetails.email,
+        name: userDetails.firstName ? `${userDetails.firstName} ${userDetails.lastName || ''}`.trim() : undefined,
+        userId,
+      });
+
+      // 2. Get or create price in Stripe
+      const priceId = await StripeSubscriptionService.getOrCreatePrice(plan, billingCycle);
+
+      // 3. Create Stripe Checkout Session for immediate subscription (no trial)
+      const checkoutSession = await stripe.checkout.sessions.create({
+        customer: stripeCustomer.id,
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/settings?session_id={CHECKOUT_SESSION_ID}&success=true`,
+        cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/settings?canceled=true`,
+        subscription_data: {
+          // No trial_period_days since trialDays is 0
+          metadata: {
+            userId,
+            planId,
+            billingCycle,
+            firebaseSubscriptionId: firebaseSubscription.id,
+          },
+        },
+        metadata: {
+          userId,
+          planId,
+          billingCycle,
+          firebaseSubscriptionId: firebaseSubscription.id,
+        },
+      });
+
+      console.log('Stripe checkout session created for immediate paid plan:', {
+        sessionId: checkoutSession.id,
+        firebaseSubscriptionId: firebaseSubscription.id
+      });
+
+      return NextResponse.json({
+        success: true,
+        checkout: true,
+        sessionId: checkoutSession.id,
+        url: checkoutSession.url,
+        firebaseSubscriptionId: firebaseSubscription.id,
+        plan: {
+          id: plan.id,
+          name: plan.name,
+          monthlyPrice: plan.monthlyPrice,
+        },
+        message: 'Firebase subscription created, redirecting to Stripe checkout for immediate payment',
+      });
+    }
+
+    console.log('Creating paid plan subscription with trial...');
 
     // Handle paid plans with Stripe Checkout
     // 1. Create or get Stripe customer

@@ -3,7 +3,6 @@ import { headers } from 'next/headers';
 import Stripe from 'stripe';
 import stripe from '@/lib/stripe/stripe';
 import FirebaseUserSubscriptionService from '@/lib/firebase/userSubscriptionService';
-import ActiveUserSubscriptionService from '@/lib/firebase/activeUserSubscriptionService';
 import PaymentDetailsService from '@/lib/firebase/paymentDetailsService';
 import StripeSubscriptionService from '@/lib/stripe/subscriptionService';
 import StripeCustomerService from '@/lib/stripe/customerService';
@@ -158,15 +157,7 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
       const updatedSubscription = await FirebaseUserSubscriptionService.getSubscriptionById(firebaseSubscription.id);
       
       if (updatedSubscription && ['active', 'trialing'].includes(updatedSubscription.status)) {
-        // 2. Update active subscription table
-        try {
-          await ActiveUserSubscriptionService.setActiveSubscription(updatedSubscription.userId, updatedSubscription);
-          console.log('✅ 2. Updated active_user_subscriptions table for user:', updatedSubscription.userId);
-        } catch (activeError) {
-          console.error('❌ Error updating active subscription:', activeError);
-        }
-        
-        // 3. Create payment record
+        // 2. Create payment record
         try {
           const amount = subscription.items.data[0]?.price?.unit_amount || 0;
           const currency = subscription.items.data[0]?.price?.currency || 'usd';
@@ -180,12 +171,19 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
             paymentStatus: 'completed',
             stripePaymentIntentId: subscription.latest_invoice as string,
             userDetails: updatedSubscription.userDetails,
+            subscriptionDetails: {
+              planName: updatedSubscription.planName,
+              billingCycle: updatedSubscription.billingCycle,
+              startDate: updatedSubscription.startDate,
+              endDate: updatedSubscription.endDate,
+              status: updatedSubscription.status,
+            },
             planName: updatedSubscription.planName,
             billingCycle: updatedSubscription.billingCycle,
-            description: `Stripe subscription payment: ${updatedSubscription.planName}`,
+            description: `Initial payment for ${updatedSubscription.planName} subscription`,
           });
           
-          console.log('✅ 3. Created payment record:', paymentRecord.id);
+          console.log('✅ 2. Created payment record:', paymentRecord.id);
         } catch (paymentError) {
           console.error('❌ Error creating payment record:', paymentError);
         }
@@ -208,7 +206,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     const firebaseSubscription = await FirebaseUserSubscriptionService.getSubscriptionByStripeId(subscription.id);
     
     if (firebaseSubscription) {
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         status: StripeSubscriptionService.mapStripeStatusToOurStatus(subscription.status),
         stripeCurrentPeriodStart: new Date(subscription.current_period_start * 1000),
         stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
@@ -265,69 +263,198 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
 async function handleTrialWillEnd(subscription: Stripe.Subscription) {
   try {
-    console.log('Handling trial will end:', subscription.id);
-    
-    // You can implement logic here to notify users about trial ending
-    // For example, send an email notification or in-app notification
+    console.log('=== Handling Trial Will End ===');
+    console.log('Subscription ID:', subscription.id);
+    console.log('Trial end date:', new Date(subscription.trial_end! * 1000));
     
     const firebaseSubscription = await FirebaseUserSubscriptionService.getSubscriptionByStripeId(subscription.id);
     
     if (firebaseSubscription) {
-      // You could update subscription to mark that trial is ending soon
+      console.log('Found Firebase subscription:', firebaseSubscription.id);
+      console.log('Current status:', firebaseSubscription.status);
+      
+      // Update subscription to indicate trial is ending soon
+      await FirebaseUserSubscriptionService.updateSubscription(firebaseSubscription.id, {
+        isTrialActive: false,
+        trialEndDate: new Date(subscription.trial_end! * 1000),
+      });
+      
+      console.log('✅ Updated subscription with trial ending information');
       console.log(`Trial ending soon for user: ${firebaseSubscription.userId}`);
+      
+      // You could add notification logic here
+      // For example, send an email or push notification about trial ending
+      
+    } else {
+      console.warn('⚠️ No Firebase subscription found for Stripe subscription:', subscription.id);
     }
   } catch (error) {
-    console.error('Error handling trial will end:', error);
+    console.error('❌ Error handling trial will end:', error);
     throw error;
   }
 }
 
 async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
   try {
-    console.log('Handling payment succeeded:', invoice.id);
+    console.log('=== Handling Payment Succeeded ===');
+    console.log('Invoice ID:', invoice.id);
+    console.log('Payment status:', invoice.status);
+    console.log('Amount paid:', invoice.amount_paid / 100, invoice.currency);
     
     if (invoice.subscription) {
       const subscriptionId = typeof invoice.subscription === 'string' 
         ? invoice.subscription 
         : invoice.subscription.id;
       
+      console.log('Processing payment for subscription:', subscriptionId);
+      
       const firebaseSubscription = await FirebaseUserSubscriptionService.getSubscriptionByStripeId(subscriptionId);
       
       if (firebaseSubscription) {
-        // Update subscription to active status and extend end date
-        await FirebaseUserSubscriptionService.updateSubscription(firebaseSubscription.id, {
-          status: 'active',
-          nextBillingDate: new Date(invoice.period_end * 1000),
-          endDate: new Date(invoice.period_end * 1000),
-        });
+        console.log('Found Firebase subscription:', firebaseSubscription.id);
+        console.log('Plan name:', firebaseSubscription.planName);
+        console.log('Is trial period:', firebaseSubscription.isTrialPeriod);
+        
+        // Get Stripe subscription details for trial check
+        const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const isInTrialPeriod = stripeSubscription.status === 'trialing';
+        
+        console.log('Stripe subscription status:', stripeSubscription.status);
+        console.log('Is currently in trial:', isInTrialPeriod);
+        
+        // 1. Create comprehensive payment record in payment_details
+        try {
+          const paymentRecord = await PaymentDetailsService.createPayment({
+            userId: firebaseSubscription.userId,
+            subscriptionId: firebaseSubscription.id,
+            paymentAmount: invoice.amount_paid / 100, // Convert from cents
+            currency: invoice.currency,
+            modeOfPayment: 'card',
+            paymentStatus: invoice.status === 'paid' ? 'completed' : 'failed',
+            stripePaymentIntentId: invoice.payment_intent as string,
+            stripeChargeId: invoice.charge as string,
+            stripeInvoiceId: invoice.id,
+            userDetails: firebaseSubscription.userDetails,
+            subscriptionDetails: {
+              planName: firebaseSubscription.planName,
+              billingCycle: firebaseSubscription.billingCycle,
+              startDate: firebaseSubscription.startDate,
+              endDate: firebaseSubscription.endDate,
+              status: firebaseSubscription.status,
+            },
+            planName: firebaseSubscription.planName,
+            billingCycle: firebaseSubscription.billingCycle,
+            description: `Payment for ${firebaseSubscription.planName} subscription`,
+          });
+          
+          console.log('✅ Created payment record:', paymentRecord.id);
+          console.log('Payment details stored with all required information');
+        } catch (paymentError) {
+          console.error('❌ Error creating payment record:', paymentError);
+        }
+        
+        // 2. For paid plans (non-trial), update subscription status
+        if (!isInTrialPeriod && firebaseSubscription.planName !== 'Free Plan') {
+          console.log('Processing paid plan payment (non-trial)');
+          
+          // Update main subscription record
+          const subscriptionUpdateData = {
+            status: 'active',
+            nextBillingDate: new Date(invoice.period_end * 1000),
+            endDate: new Date(invoice.period_end * 1000),
+            lastPaymentDate: new Date(),
+            isTrialPeriod: false,
+          };
+          
+          await FirebaseUserSubscriptionService.updateSubscription(firebaseSubscription.id, subscriptionUpdateData);
+          console.log('✅ Updated main subscription status to active');
+        } else if (isInTrialPeriod) {
+          console.log('Subscription is in trial period - maintaining trial status');
+          
+          // For trial periods, just update the billing date but keep trial status
+          await FirebaseUserSubscriptionService.updateSubscription(firebaseSubscription.id, {
+            nextBillingDate: new Date(invoice.period_end * 1000),
+            endDate: new Date(invoice.period_end * 1000),
+          });
+          console.log('✅ Updated trial subscription billing dates');
+        } else {
+          console.log('Free plan payment processed - no status change needed');
+        }
+        
+        console.log('🎉 Payment success handling completed successfully');
+      } else {
+        console.warn('⚠️ No Firebase subscription found for Stripe subscription:', subscriptionId);
       }
+    } else {
+      console.log('Payment not associated with a subscription - skipping');
     }
   } catch (error) {
-    console.error('Error handling payment succeeded:', error);
+    console.error('❌ Error handling payment succeeded:', error);
     throw error;
   }
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
   try {
-    console.log('Handling payment failed:', invoice.id);
+    console.log('=== Handling Payment Failed ===');
+    console.log('Invoice ID:', invoice.id);
+    console.log('Payment attempt failed for amount:', invoice.amount_due / 100, invoice.currency);
     
     if (invoice.subscription) {
       const subscriptionId = typeof invoice.subscription === 'string' 
         ? invoice.subscription 
         : invoice.subscription.id;
       
+      console.log('Processing failed payment for subscription:', subscriptionId);
+      
       const firebaseSubscription = await FirebaseUserSubscriptionService.getSubscriptionByStripeId(subscriptionId);
       
       if (firebaseSubscription) {
-        // Update subscription to past_due status
+        console.log('Found Firebase subscription:', firebaseSubscription.id);
+        
+        // 1. Create payment record for failed payment
+        try {
+          const paymentRecord = await PaymentDetailsService.createPayment({
+            userId: firebaseSubscription.userId,
+            subscriptionId: firebaseSubscription.id,
+            paymentAmount: invoice.amount_due / 100, // Convert from cents
+            currency: invoice.currency,
+            modeOfPayment: 'card',
+            paymentStatus: 'failed',
+            stripePaymentIntentId: invoice.payment_intent as string,
+            stripeChargeId: invoice.charge as string,
+            stripeInvoiceId: invoice.id,
+            userDetails: firebaseSubscription.userDetails,
+            subscriptionDetails: {
+              planName: firebaseSubscription.planName,
+              billingCycle: firebaseSubscription.billingCycle,
+              startDate: firebaseSubscription.startDate,
+              endDate: firebaseSubscription.endDate,
+              status: firebaseSubscription.status,
+            },
+            planName: firebaseSubscription.planName,
+            billingCycle: firebaseSubscription.billingCycle,
+            description: `Failed payment for ${firebaseSubscription.planName} subscription`,
+          });
+          
+          console.log('✅ Created failed payment record:', paymentRecord.id);
+        } catch (paymentError) {
+          console.error('❌ Error creating failed payment record:', paymentError);
+        }
+        
+        // 2. Update subscription to past_due status
         await FirebaseUserSubscriptionService.updateSubscription(firebaseSubscription.id, {
           status: 'past_due',
         });
+        console.log('✅ Updated subscription status to past_due');
+        
+        console.log('🔴 Payment failure handling completed');
+      } else {
+        console.warn('⚠️ No Firebase subscription found for Stripe subscription:', subscriptionId);
       }
     }
   } catch (error) {
-    console.error('Error handling payment failed:', error);
+    console.error('❌ Error handling payment failed:', error);
     throw error;
   }
 }

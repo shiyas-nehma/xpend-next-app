@@ -28,6 +28,7 @@ export interface PaymentRecord {
   paymentStatus: 'pending' | 'completed' | 'failed' | 'cancelled';
   stripePaymentIntentId?: string;
   stripeChargeId?: string;
+  stripeInvoiceId?: string; // Added for invoice tracking
   cardDetails?: {
     last4?: string;
     brand?: string;
@@ -39,6 +40,13 @@ export interface PaymentRecord {
     firstName: string;
     lastName: string;
     userId: string;
+  };
+  subscriptionDetails?: {
+    planName: string;
+    billingCycle: 'monthly' | 'annual';
+    startDate?: Date;
+    endDate?: Date;
+    status?: string;
   };
   planName: string;
   billingCycle: 'monthly' | 'annual';
@@ -58,6 +66,7 @@ export interface PaymentCreateData {
   paymentStatus: 'pending' | 'completed' | 'failed' | 'cancelled';
   stripePaymentIntentId?: string;
   stripeChargeId?: string;
+  stripeInvoiceId?: string; // Added for invoice tracking
   cardDetails?: {
     last4?: string;
     brand?: string;
@@ -69,6 +78,13 @@ export interface PaymentCreateData {
     firstName: string;
     lastName: string;
     userId: string;
+  };
+  subscriptionDetails?: {
+    planName: string;
+    billingCycle: 'monthly' | 'annual';
+    startDate?: Date;
+    endDate?: Date;
+    status?: string;
   };
   planName: string;
   billingCycle: 'monthly' | 'annual';
@@ -106,8 +122,10 @@ class PaymentDetailsService {
       paymentStatus: data.paymentStatus || 'pending',
       stripePaymentIntentId: data.stripePaymentIntentId,
       stripeChargeId: data.stripeChargeId,
+      stripeInvoiceId: data.stripeInvoiceId,
       cardDetails: data.cardDetails,
       userDetails: data.userDetails,
+      subscriptionDetails: data.subscriptionDetails,
       planName: data.planName,
       billingCycle: data.billingCycle || 'monthly',
       description: data.description,
