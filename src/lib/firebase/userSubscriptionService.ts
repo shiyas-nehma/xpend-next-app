@@ -235,11 +235,15 @@ class FirebaseUserSubscriptionService {
         console.log('✅ 2. Skipped payment record creation for free plan (monthlyPrice: 0)');
       }
       
+      // 3. Note: User table update will be handled on the client side due to authentication constraints
+      console.log('ℹ️  3. User table update will be handled on client side after subscription creation');
+      
       console.log('🎉 Successfully created subscription:', {
         subscriptionId: subscription.id,
         userId: subscription.userId,
         planName: subscription.planName,
-        status: subscription.status
+        status: subscription.status,
+        expiry_date: subscription.endDate.toISOString()
       });
       
       return subscription;
@@ -275,7 +279,34 @@ class FirebaseUserSubscriptionService {
       await updateDoc(docRef, firestoreData);
       console.log('✅ Updated subscription in user_subscriptions table:', subscriptionId);
       
-      // 2. Get the updated subscription to process changes
+      // 2. Update users table with latest subscription information
+      try {
+        const updatedDoc = await getDoc(docRef);
+        if (updatedDoc.exists()) {
+          const updatedSubscription = this.firestoreToSubscription(updatedDoc.data(), updatedDoc.id);
+          
+          const userDocRef = doc(db, 'users', updatedSubscription.userId);
+          const userUpdateData = {
+            subscription_plan_id: updatedSubscription.planId,
+            subscription_status: updatedSubscription.status,
+            expiry_date: updatedSubscription.endDate.toISOString(),
+            updatedAt: serverTimestamp()
+          };
+          
+          await updateDoc(userDocRef, userUpdateData);
+          console.log('✅ Updated users table with subscription changes:', {
+            userId: updatedSubscription.userId,
+            subscription_plan_id: updatedSubscription.planId,
+            subscription_status: updatedSubscription.status,
+            expiry_date: updatedSubscription.endDate.toISOString()
+          });
+        }
+      } catch (userUpdateError) {
+        console.error('❌ Error updating users table:', userUpdateError);
+        // Don't fail the main subscription update if user update fails
+      }
+      
+      // 3. Get the updated subscription to process changes
       const updatedDoc = await getDoc(docRef);
       if (updatedDoc.exists()) {
         const updatedSubscription = this.firestoreToSubscription(updatedDoc.data(), updatedDoc.id);
@@ -283,7 +314,7 @@ class FirebaseUserSubscriptionService {
         
         console.log('Status change:', { previousStatus, newStatus });
         
-        // 3. Create payment record for significant status changes
+        // 4. Create payment record for significant status changes
         try {
           const shouldCreatePaymentRecord = this.shouldCreatePaymentRecordForUpdate(
             previousStatus, 
@@ -654,6 +685,34 @@ class FirebaseUserSubscriptionService {
     } catch (error) {
       console.error('Error in cleanup:', error);
       // Don't throw error as this is a cleanup utility
+    }
+  }
+
+  // Sync user table with latest subscription data
+  static async syncUserTableWithSubscription(userId: string): Promise<void> {
+    try {
+      console.log('Syncing user table with latest subscription data for user:', userId);
+      
+      // Get user's current subscription
+      const currentSubscription = await this.getUserSubscription(userId);
+      
+      if (!currentSubscription) {
+        console.log('ℹ️  No subscription found for user. User table should be updated via client-side method to clear subscription data.');
+        return;
+      }
+      
+      console.log('ℹ️  Found subscription data. User table should be updated via client-side method with:', {
+        userId,
+        subscription_plan_id: currentSubscription.planId,
+        subscription_status: currentSubscription.status,
+        expiry_date: currentSubscription.endDate.toISOString()
+      });
+      
+      console.log('ℹ️  Note: User table updates must be performed client-side due to authentication constraints');
+      
+    } catch (error) {
+      console.error('Error checking subscription data for user sync:', error);
+      throw error;
     }
   }
 }

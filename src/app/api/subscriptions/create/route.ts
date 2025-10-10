@@ -216,6 +216,12 @@ export async function POST(request: NextRequest) {
           startDate: subscription.startDate,
           endDate: subscription.endDate,
         },
+        // Include data needed for client-side user table update
+        userUpdateData: {
+          subscription_plan_id: subscription.planId,
+          subscription_status: subscription.status,
+          expiry_date: subscription.endDate.toISOString(),
+        }
       });
     }
 
@@ -224,20 +230,7 @@ export async function POST(request: NextRequest) {
       console.log('Creating immediate paid plan subscription (no trial)...');
       
       // For paid plans with no trial, we need Stripe checkout for immediate payment
-      // But first, let's create the Firebase subscription record
-      const firebaseSubscription = await FirebaseUserSubscriptionService.createSubscription(
-        {
-          userId,
-          planId,
-          userDetails,
-          billingCycle,
-        },
-        plan
-      );
-      
-      console.log('Firebase subscription created for immediate paid plan:', firebaseSubscription.id);
-
-      // Now create Stripe checkout for immediate payment
+      // IMPORTANT: Do NOT create Firebase subscription yet. We'll create it in the webhook after successful checkout.
       // 1. Create or get Stripe customer
       const stripeCustomer = await StripeCustomerService.getOrCreateCustomer({
         email: userDetails.email,
@@ -267,20 +260,17 @@ export async function POST(request: NextRequest) {
             userId,
             planId,
             billingCycle,
-            firebaseSubscriptionId: firebaseSubscription.id,
           },
         },
         metadata: {
           userId,
           planId,
           billingCycle,
-          firebaseSubscriptionId: firebaseSubscription.id,
         },
       });
 
       console.log('Stripe checkout session created for immediate paid plan:', {
-        sessionId: checkoutSession.id,
-        firebaseSubscriptionId: firebaseSubscription.id
+        sessionId: checkoutSession.id
       });
 
       return NextResponse.json({
@@ -288,13 +278,12 @@ export async function POST(request: NextRequest) {
         checkout: true,
         sessionId: checkoutSession.id,
         url: checkoutSession.url,
-        firebaseSubscriptionId: firebaseSubscription.id,
         plan: {
           id: plan.id,
           name: plan.name,
           monthlyPrice: plan.monthlyPrice,
         },
-        message: 'Firebase subscription created, redirecting to Stripe checkout for immediate payment',
+        message: 'Redirecting to Stripe checkout for immediate payment',
       });
     }
 
@@ -311,25 +300,7 @@ export async function POST(request: NextRequest) {
     // 2. Get or create price in Stripe
     const priceId = await StripeSubscriptionService.getOrCreatePrice(plan, billingCycle);
 
-    // 3. CRITICAL: Create Firebase subscription record FIRST
-    console.log('Creating Firebase subscription record for paid plan...');
-    const firebaseSubscription = await FirebaseUserSubscriptionService.createSubscription(
-      {
-        userId,
-        planId,
-        userDetails,
-        billingCycle,
-      },
-      plan
-    );
-    
-    console.log('Firebase subscription created:', {
-      id: firebaseSubscription.id,
-      status: firebaseSubscription.status,
-      planName: firebaseSubscription.planName
-    });
-
-    // 4. Create Stripe Checkout Session
+    // 3. Create Stripe Checkout Session (paid plan with trial)
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: stripeCustomer.id,
       payment_method_types: ['card'],
@@ -348,20 +319,17 @@ export async function POST(request: NextRequest) {
           userId,
           planId,
           billingCycle,
-          firebaseSubscriptionId: firebaseSubscription.id, // Link to Firebase record
         },
       },
       metadata: {
         userId,
         planId,
         billingCycle,
-        firebaseSubscriptionId: firebaseSubscription.id, // Link to Firebase record
       },
     });
 
     console.log('Stripe checkout session created:', {
-      sessionId: checkoutSession.id,
-      firebaseSubscriptionId: firebaseSubscription.id
+      sessionId: checkoutSession.id
     });
 
     // Return checkout session for frontend redirect
@@ -370,13 +338,12 @@ export async function POST(request: NextRequest) {
       checkout: true,
       sessionId: checkoutSession.id,
       url: checkoutSession.url,
-      firebaseSubscriptionId: firebaseSubscription.id,
       plan: {
         id: plan.id,
         name: plan.name,
         monthlyPrice: plan.monthlyPrice,
       },
-      message: 'Firebase subscription created, redirecting to Stripe checkout',
+      message: 'Redirecting to Stripe checkout',
     });
 
   } catch (error) {

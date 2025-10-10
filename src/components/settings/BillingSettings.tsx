@@ -6,6 +6,7 @@ import SettingsCard from './SettingsCard';
 import { CreditCardIcon, CalendarIcon, CheckCircleIcon, PlusIcon, ExclamationTriangleIcon } from '@/components/icons/NavIcons';
 import { SubscriptionPlanService, Plan } from '@/lib/firebase/subscriptionService';
 import FirebaseUserSubscriptionService from '@/lib/firebase/userSubscriptionService';
+import { updateUserSubscriptionFields, syncUserTableWithCurrentSubscription } from '@/lib/firebase/userProfileService';
 import { UserSubscription } from '@/types/subscription';
 import SubscriptionUtils from '@/utils/subscriptionUtils';
 import getStripe from '@/lib/stripe/stripe-client';
@@ -16,7 +17,7 @@ const BillingSettings: React.FC = () => {
     const [availablePlans, setAvailablePlans] = useState<Plan[]>([]);
     const [showPlanModal, setShowPlanModal] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [processingPayment, setProcessingPayment] = useState(false);
+    const [processingPlanId, setProcessingPlanId] = useState<string | null>(null);
 
     useEffect(() => {
         if (!user) return;
@@ -68,6 +69,38 @@ const BillingSettings: React.FC = () => {
         };
     }, [user]);
 
+    // Handle successful Stripe payment completion
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const success = urlParams.get('success');
+        const sessionId = urlParams.get('session_id');
+        
+        if (success === 'true' && sessionId && user) {
+            console.log('Stripe payment completed successfully, session ID:', sessionId);
+            
+            // Wait a moment for webhooks to process, then sync user table
+            const syncUserData = async () => {
+                try {
+                    // Wait 3 seconds for webhooks to complete
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    
+                    console.log('Syncing user table after successful payment...');
+                    await syncUserTableWithCurrentSubscription();
+                    
+                    // Clean up URL parameters
+                    const newUrl = window.location.pathname;
+                    window.history.replaceState(null, '', newUrl);
+                    
+                    console.log('✅ User table synced after payment completion');
+                } catch (error) {
+                    console.error('❌ Failed to sync user table after payment:', error);
+                }
+            };
+            
+            syncUserData();
+        }
+    }, [user]);
+
     const handleSelectPlan = async (plan: Plan, billingCycle: 'monthly' | 'annual' = 'monthly') => {
         if (!user) return;
         
@@ -77,7 +110,7 @@ const BillingSettings: React.FC = () => {
         console.log('User ID:', user?.uid);
         
         try {
-            setProcessingPayment(true);
+            setProcessingPlanId(plan.id);
 
             // Handle free plans (no Stripe integration needed)
             if (!SubscriptionUtils.requiresPayment(plan)) {
@@ -111,16 +144,29 @@ const BillingSettings: React.FC = () => {
 
                 let result;
                 try {
-                    result = await response.json();
-                } catch (jsonError) {
                     const responseText = await response.text();
-                    console.error('Failed to parse JSON response:', responseText);
-                    throw new Error(`Invalid JSON response: ${responseText}`);
+                    console.log('Free plan response text:', responseText);
+                    result = JSON.parse(responseText);
+                } catch (jsonError) {
+                    console.error('Failed to parse JSON response:', jsonError);
+                    throw new Error(`Invalid JSON response: ${jsonError.message}`);
                 }
 
                 console.log('Free plan API parsed result:', result);
 
                 if (result.success) {
+                    // Update user table with subscription data
+                    try {
+                        if (result.userUpdateData) {
+                            console.log('Updating user table with subscription data...');
+                            await updateUserSubscriptionFields(result.userUpdateData);
+                            console.log('✅ User table updated successfully');
+                        }
+                    } catch (userUpdateError) {
+                        console.error('❌ Failed to update user table:', userUpdateError);
+                        // Don't fail the whole process if user update fails
+                    }
+                    
                     setShowPlanModal(false);
                     // Subscription will be updated via real-time listener
                 } else {
@@ -235,7 +281,7 @@ const BillingSettings: React.FC = () => {
                 alert('Failed to create subscription. Please check the console for details.');
             }
         } finally {
-            setProcessingPayment(false);
+            setProcessingPlanId(null);
         }
     };
 
@@ -461,7 +507,7 @@ const BillingSettings: React.FC = () => {
                     currentPlan={userSubscription?.planId}
                     onSelectPlan={handleSelectPlan}
                     onClose={() => setShowPlanModal(false)}
-                    processing={processingPayment}
+                    processingPlanId={processingPlanId}
                 />
             )}
         </>
@@ -474,7 +520,7 @@ interface PlanSelectionModalProps {
     currentPlan?: string;
     onSelectPlan: (plan: Plan, billingCycle: 'monthly' | 'annual') => void;
     onClose: () => void;
-    processing: boolean;
+    processingPlanId: string | null;
 }
 
 const PlanSelectionModal: React.FC<PlanSelectionModalProps> = ({ 
@@ -482,7 +528,7 @@ const PlanSelectionModal: React.FC<PlanSelectionModalProps> = ({
     currentPlan, 
     onSelectPlan, 
     onClose,
-    processing
+    processingPlanId
 }) => {
     const [selectedBillingCycle, setSelectedBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
@@ -499,7 +545,7 @@ const PlanSelectionModal: React.FC<PlanSelectionModalProps> = ({
                         <h2 className="text-2xl font-bold text-gray-900">Choose Your Plan</h2>
                         <button
                             onClick={onClose}
-                            disabled={processing}
+                            disabled={!!processingPlanId}
                             className="text-gray-400 hover:text-gray-600 text-2xl disabled:opacity-50"
                         >
                             ×
@@ -537,10 +583,19 @@ const PlanSelectionModal: React.FC<PlanSelectionModalProps> = ({
 
                 <div className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {plans.map((plan) => {
+                        {plans.map((plan, index) => {
                             const isCurrentPlan = currentPlan === plan.id;
                             const isHighlighted = plan.highlight;
                             const isFree = !SubscriptionUtils.requiresPayment(plan);
+                            
+                            // Debug logging for plan selection issues
+                            console.log(`Rendering plan ${index}:`, {
+                                id: plan.id,
+                                name: plan.name,
+                                currentPlan,
+                                isCurrentPlan,
+                                isHighlighted
+                            });
                             
                             const displayPrice = selectedBillingCycle === 'monthly' 
                                 ? plan.monthlyPrice
@@ -561,8 +616,18 @@ const PlanSelectionModal: React.FC<PlanSelectionModalProps> = ({
                                             : isCurrentPlan
                                             ? 'border-green-500 bg-green-50'
                                             : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-                                    } ${processing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    onClick={() => !isCurrentPlan && !processing && onSelectPlan(plan, selectedBillingCycle)}
+                                    } ${processingPlanId === plan.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    onClick={() => {
+                                        console.log('Plan clicked:', {
+                                            planId: plan.id,
+                                            planName: plan.name,
+                                            isCurrentPlan,
+                                            processing: !!processingPlanId
+                                        });
+                                        if (!isCurrentPlan && !processingPlanId) {
+                                            onSelectPlan(plan, selectedBillingCycle);
+                                        }
+                                    }}
                                 >
                                     {isHighlighted && (
                                         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
@@ -631,18 +696,18 @@ const PlanSelectionModal: React.FC<PlanSelectionModalProps> = ({
                                     </div>
 
                                     <button
-                                        disabled={isCurrentPlan || processing}
+                                        disabled={isCurrentPlan || processingPlanId === plan.id}
                                         className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
                                             isCurrentPlan
                                                 ? 'bg-green-100 text-green-800 cursor-not-allowed'
-                                                : processing
+                                                : processingPlanId === plan.id
                                                 ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                                                 : isHighlighted
                                                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                                                 : 'bg-gray-900 text-white hover:bg-gray-800'
                                         }`}
                                     >
-                                        {processing 
+                                        {processingPlanId === plan.id 
                                             ? 'Processing...'
                                             : isCurrentPlan 
                                                 ? 'Current Plan' 

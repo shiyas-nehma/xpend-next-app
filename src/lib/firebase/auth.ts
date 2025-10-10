@@ -47,13 +47,18 @@ export interface UpdateUserData {
 }
 
 export interface UserProfileData {
-  uid: string;
+  userId: string;
   email: string;
   displayName: string;
   photoURL: string;
   userType: number; // 1 = superadmin, 2 = regular user
   createdAt: string;
   lastSignIn: string;
+  role: string;
+  // Subscription fields
+  subscription_plan_id: string;
+  subscription_status: string;
+  expiry_date: string;
 }
 
 // Sign up with email and password
@@ -82,14 +87,18 @@ export const signUp = async ({ email, password, fullName }: SignUpData): Promise
     
     // Create user profile document in Firestore with userType: 2 (regular user)
     await setDoc(doc(db, 'users', user.uid), {
-      uid: user.uid,
+      userId: user.uid,
       email: user.email,
       displayName: fullName,
       userType: 2, // 2 = regular user
       createdAt: new Date().toISOString(),
       lastSignIn: new Date().toISOString(),
       photoURL: '',
-      role: 'user'
+      role: 'user',
+      // Subscription fields - initially empty
+      subscription_plan_id: '',
+      subscription_status: '',
+      expiry_date: ''
     });
     
     console.log('User profile created successfully in Firestore'); // Debug log
@@ -194,14 +203,18 @@ export const signInWithGoogle = async (): Promise<{ user: User; userData: any }>
     if (!userDoc.exists()) {
       // Create new user document for Google sign-in users with userType: 2
       userData = {
-        uid: user.uid,
+        userId: user.uid,
         email: user.email,
         displayName: user.displayName || '',
         userType: 2, // 2 = regular user
         createdAt: new Date().toISOString(),
         lastSignIn: new Date().toISOString(),
         photoURL: user.photoURL || '',
-        role: 'user'
+        role: 'user',
+        // Subscription fields - initially empty
+        subscription_plan_id: '',
+        subscription_status: '',
+        expiry_date: ''
       };
       
       await setDoc(doc(db, 'users', user.uid), userData);
@@ -302,7 +315,7 @@ export const getUserProfile = () => {
   if (!user) return null;
   
   return {
-    uid: user.uid,
+    userId: user.uid,
     email: user.email || '',
     displayName: user.displayName || '',
     photoURL: user.photoURL || '',
@@ -326,7 +339,7 @@ export const createSuperAdmin = async ({ email, password }: SuperAdminData): Pro
     
     // Store user data in Firestore with userType = 1
     await setDoc(doc(db, 'users', user.uid), {
-      uid: user.uid,
+      userId: user.uid,
       email: user.email,
       displayName: 'Super Administrator',
       userType: 1, // 1 = superadmin

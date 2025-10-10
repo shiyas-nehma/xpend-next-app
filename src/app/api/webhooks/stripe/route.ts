@@ -15,9 +15,11 @@ if (!webhookSecret) {
 
 export async function POST(request: NextRequest) {
   console.log('🚀 Webhook received at:', new Date().toISOString());
+  console.log('🔍 Request headers:', Object.fromEntries(request.headers.entries()));
   
   try {
     const body = await request.text();
+    console.log('📝 Webhook body length:', body.length);
     const headersList = headers();
     const signature = headersList.get('stripe-signature');
 
@@ -158,6 +160,9 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
     console.log('Stripe customer ID:', subscription.customer);
     console.log('Subscription status:', subscription.status);
     console.log('Subscription metadata:', subscription.metadata);
+    console.log('Current period start:', new Date(subscription.current_period_start * 1000));
+    console.log('Current period end:', new Date(subscription.current_period_end * 1000));
+    console.log('Latest invoice:', subscription.latest_invoice);
     
     // Try to find Firebase subscription in multiple ways
     let firebaseSubscription = null;
@@ -202,55 +207,249 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
         // 2. Handle payment record based on plan type
         try {
           const existingPayment = await PaymentDetailsService.findPendingPaymentForSubscription(updatedSubscription.id);
+          const isTrialing = updatedSubscription.status === 'trialing';
           
           if (existingPayment) {
-            // Update existing payment record (for trial plans that had pending payment)
-            console.log('Found existing pending payment record, updating to completed:', existingPayment.id);
-            await PaymentDetailsService.markPaymentCompleted(
-              existingPayment.id,
-              subscription.latest_invoice as string,
-              undefined, // stripeChargeId - will be set from invoice webhook
-              undefined, // stripeInvoiceId - will be set from invoice webhook
-              undefined  // cardDetails - will be set from invoice webhook
-            );
-            console.log('✅ 2. Updated existing payment record to completed');
+            if (!isTrialing) {
+              // Update existing payment record to completed for immediate payment (non-trial)
+              console.log('Found existing pending payment record, updating to completed:', existingPayment.id);
+              await PaymentDetailsService.markPaymentCompleted(
+                existingPayment.id,
+                subscription.latest_invoice as string,
+                undefined, // stripeChargeId - will be set from invoice webhook
+                undefined, // stripeInvoiceId - will be set from invoice webhook
+                undefined  // cardDetails - will be set from invoice webhook
+              );
+              console.log('✅ 2. Updated existing payment record to completed');
+            } else {
+              console.log('Trialing subscription – keeping existing payment record as pending');
+            }
           } else {
-            // Create new payment record for immediate payment plans (trialDays: 0) or legacy handling
-            console.log('No existing payment record found, creating completed payment record');
-            const amount = subscription.items.data[0]?.price?.unit_amount || 0;
-            const currency = subscription.items.data[0]?.price?.currency || 'usd';
-            
-            const paymentRecord = await PaymentDetailsService.createPayment({
-              userId: updatedSubscription.userId,
-              subscriptionId: updatedSubscription.id,
-              paymentAmount: amount / 100, // Convert from cents
-              currency,
-              modeOfPayment: 'card',
-              paymentStatus: 'completed', // Direct payment is completed by the time webhook fires
-              stripePaymentIntentId: subscription.latest_invoice as string,
-              userDetails: updatedSubscription.userDetails,
-              subscriptionDetails: {
+            if (isTrialing) {
+              // Create a pending payment record to represent upcoming charge after trial
+              console.log('No existing payment record found, creating pending payment record for trial');
+              const amount = subscription.items.data[0]?.price?.unit_amount || 0;
+              const currency = subscription.items.data[0]?.price?.currency || 'usd';
+              await PaymentDetailsService.createPayment({
+                userId: updatedSubscription.userId,
+                subscriptionId: updatedSubscription.id,
+                paymentAmount: amount / 100,
+                currency,
+                modeOfPayment: 'pending',
+                paymentStatus: 'pending',
+                userDetails: updatedSubscription.userDetails,
+                subscriptionDetails: {
+                  planName: updatedSubscription.planName,
+                  billingCycle: updatedSubscription.billingCycle,
+                  startDate: updatedSubscription.startDate,
+                  endDate: updatedSubscription.endDate,
+                  status: updatedSubscription.status,
+                },
                 planName: updatedSubscription.planName,
                 billingCycle: updatedSubscription.billingCycle,
-                startDate: updatedSubscription.startDate,
-                endDate: updatedSubscription.endDate,
-                status: updatedSubscription.status,
-              },
-              planName: updatedSubscription.planName,
-              billingCycle: updatedSubscription.billingCycle,
-              description: `Payment for ${updatedSubscription.planName} subscription (immediate payment)`,
-            });
-            
-            console.log('✅ 2. Created completed payment record for immediate payment:', paymentRecord.id);
+                description: `Trial started for ${updatedSubscription.planName} – payment pending after trial`,
+              });
+              console.log('✅ 2. Created pending payment record for trial');
+            } else {
+              // Create completed payment record for immediate payment
+              console.log('No existing payment record found, creating completed payment record');
+              const amount = subscription.items.data[0]?.price?.unit_amount || 0;
+              const currency = subscription.items.data[0]?.price?.currency || 'usd';
+              const paymentRecord = await PaymentDetailsService.createPayment({
+                userId: updatedSubscription.userId,
+                subscriptionId: updatedSubscription.id,
+                paymentAmount: amount / 100, // Convert from cents
+                currency,
+                modeOfPayment: 'card',
+                paymentStatus: 'completed',
+                stripePaymentIntentId: subscription.latest_invoice as string,
+                userDetails: updatedSubscription.userDetails,
+                subscriptionDetails: {
+                  planName: updatedSubscription.planName,
+                  billingCycle: updatedSubscription.billingCycle,
+                  startDate: updatedSubscription.startDate,
+                  endDate: updatedSubscription.endDate,
+                  status: updatedSubscription.status,
+                },
+                planName: updatedSubscription.planName,
+                billingCycle: updatedSubscription.billingCycle,
+                description: `Payment for ${updatedSubscription.planName} subscription (immediate payment)`,
+              });
+              console.log('✅ 2. Created completed payment record for immediate payment:', paymentRecord.id);
+            }
           }
         } catch (paymentError) {
           console.error('❌ Error handling payment record:', paymentError);
         }
       }
       
+      // 3. Sync user table with updated subscription data
+      try {
+        await FirebaseUserSubscriptionService.syncUserTableWithSubscription(firebaseSubscription.userId);
+        console.log('✅ 3. Synced user table with subscription data');
+      } catch (syncError) {
+        console.error('❌ Error syncing user table:', syncError);
+        // Don't fail the webhook if user sync fails
+      }
+      
       console.log('🎉 Successfully processed Stripe subscription creation');
     } else {
       console.warn('⚠️ No Firebase subscription found for Stripe ID:', subscription.id);
+      // New flow: We did not pre-create a Firebase subscription for paid plans. Create it now.
+      try {
+        const metadata = subscription.metadata || {};
+        const userId = metadata.userId;
+        const planId = metadata.planId;
+        const billingCycle = (metadata.billingCycle as 'monthly' | 'annual') || 'monthly';
+
+        if (!userId || !planId) {
+          console.error('❌ Cannot create Firebase subscription — missing userId or planId in Stripe metadata');
+          return;
+        }
+
+        // Fetch plan details from our admin service to mirror create flow
+        // Avoid import cycles by dynamic import
+        const { AdminSubscriptionPlanService } = await import('@/lib/firebase/adminSubscriptionService');
+        const plan = await AdminSubscriptionPlanService.getPlanById(planId);
+        if (!plan) {
+          console.error('❌ Plan not found when creating Firebase subscription from webhook:', planId);
+          return;
+        }
+
+        // Try to get customer details for userDetails
+        let userDetails: { email: string; firstName?: string; lastName?: string; userId: string } = {
+          email: '',
+          userId,
+        };
+        try {
+          const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id;
+          if (customerId) {
+            const customer = await stripe.customers.retrieve(customerId);
+            if (!('deleted' in customer)) {
+              userDetails.email = customer.email || '';
+              const name = customer.name || '';
+              if (name) {
+                const parts = name.split(' ');
+                userDetails.firstName = parts[0];
+                userDetails.lastName = parts.slice(1).join(' ');
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('⚠️ Could not retrieve Stripe customer details for userDetails');
+        }
+
+        console.log('Creating Firebase subscription with data:', {
+          userId,
+          planId,
+          userDetails,
+          billingCycle,
+          planName: plan.name
+        });
+
+        // Build create data
+        const createData = {
+          userId,
+          planId,
+          userDetails,
+          billingCycle,
+        } as const;
+
+        // Create Firebase subscription record mirroring the current Stripe status
+        const created = await FirebaseUserSubscriptionService.createSubscription(createData, plan);
+        console.log('✅ 1. Created Firebase subscription from webhook:', created.id);
+        
+        // Immediately update with Stripe linkage and accurate dates/status
+        await FirebaseUserSubscriptionService.updateSubscription(created.id, {
+          stripeSubscriptionId: subscription.id,
+          status: StripeSubscriptionService.mapStripeStatusToOurStatus(subscription.status),
+          stripeCurrentPeriodStart: new Date(subscription.current_period_start * 1000),
+          stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+          nextBillingDate: new Date(subscription.current_period_end * 1000),
+        });
+        console.log('✅ 2. Updated Firebase subscription with Stripe data');
+
+        // Get the updated subscription to handle payment records
+        const updatedCreated = await FirebaseUserSubscriptionService.getSubscriptionById(created.id);
+        if (updatedCreated && ['active', 'trialing'].includes(updatedCreated.status)) {
+          // Handle payment record creation based on plan type
+          try {
+            const isTrialing = updatedCreated.status === 'trialing';
+            const amount = subscription.items.data[0]?.price?.unit_amount || 0;
+            const currency = subscription.items.data[0]?.price?.currency || 'usd';
+            
+            if (isTrialing) {
+              // Create a pending payment record for trial subscriptions
+              console.log('Creating pending payment record for trial subscription');
+              await PaymentDetailsService.createPayment({
+                userId: updatedCreated.userId,
+                subscriptionId: updatedCreated.id,
+                paymentAmount: amount / 100,
+                currency,
+                modeOfPayment: 'pending',
+                paymentStatus: 'pending',
+                userDetails: updatedCreated.userDetails,
+                subscriptionDetails: {
+                  planName: updatedCreated.planName,
+                  billingCycle: updatedCreated.billingCycle,
+                  startDate: updatedCreated.startDate,
+                  endDate: updatedCreated.endDate,
+                  status: updatedCreated.status,
+                },
+                planName: updatedCreated.planName,
+                billingCycle: updatedCreated.billingCycle,
+                description: `Trial started for ${updatedCreated.planName} – payment pending after trial`,
+              });
+              console.log('✅ 3. Created pending payment record for trial');
+            } else {
+              // Create completed payment record for immediate payment subscriptions
+              console.log('Creating completed payment record for immediate payment subscription');
+              const paymentRecord = await PaymentDetailsService.createPayment({
+                userId: updatedCreated.userId,
+                subscriptionId: updatedCreated.id,
+                paymentAmount: amount / 100,
+                currency,
+                modeOfPayment: 'card',
+                paymentStatus: 'completed',
+                stripePaymentIntentId: subscription.latest_invoice as string,
+                userDetails: updatedCreated.userDetails,
+                subscriptionDetails: {
+                  planName: updatedCreated.planName,
+                  billingCycle: updatedCreated.billingCycle,
+                  startDate: updatedCreated.startDate,
+                  endDate: updatedCreated.endDate,
+                  status: updatedCreated.status,
+                },
+                planName: updatedCreated.planName,
+                billingCycle: updatedCreated.billingCycle,
+                description: `Payment for ${updatedCreated.planName} subscription (immediate payment)`,
+              });
+              console.log('✅ 3. Created completed payment record:', paymentRecord.id);
+            }
+          } catch (paymentError) {
+            console.error('❌ Error creating payment record for new subscription:', paymentError);
+          }
+        }
+
+        // Sync user table with the new subscription data
+        try {
+          await FirebaseUserSubscriptionService.syncUserTableWithSubscription(userId);
+          console.log('✅ 4. Synced user table with new subscription data');
+        } catch (syncError) {
+          console.error('❌ Error syncing user table for new subscription:', syncError);
+        }
+
+        console.log('🎉 Successfully created and processed new Firebase subscription from webhook');
+      } catch (createErr) {
+        console.error('❌ Failed to create Firebase subscription from webhook:', createErr);
+        console.error('Error details:', {
+          message: createErr instanceof Error ? createErr.message : String(createErr),
+          stack: createErr instanceof Error ? createErr.stack : undefined,
+          userId,
+          planId,
+          billingCycle
+        });
+      }
     }
   } catch (error) {
     console.error('❌ Error handling subscription created:', error);
@@ -294,6 +493,15 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       }
 
       await FirebaseUserSubscriptionService.updateSubscription(firebaseSubscription.id, updateData);
+      
+      // Sync user table with updated subscription data
+      try {
+        await FirebaseUserSubscriptionService.syncUserTableWithSubscription(firebaseSubscription.userId);
+        console.log('✅ Synced user table with updated subscription data');
+      } catch (syncError) {
+        console.error('❌ Error syncing user table:', syncError);
+        // Don't fail the webhook if user sync fails
+      }
     }
   } catch (error) {
     console.error('Error handling subscription updated:', error);
